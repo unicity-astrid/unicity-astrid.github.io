@@ -11,8 +11,8 @@
 ---
 
 <div class="pill-wrap" id="pill-wrap" hidden>
-  <div class="pill-status mono" id="pill-status" hidden></div>
   <div class="pill-panel card" id="pill-panel" hidden>
+    <div class="pill-status mono" id="pill-status" hidden></div>
     <div class="pill-results" id="pill-results"></div>
     <div class="pill-progress" id="pill-progress" hidden>
       <div class="pill-progress-bar" id="pill-progress-bar"></div>
@@ -50,9 +50,10 @@
   .pill-wrap {
     position: fixed;
     bottom: var(--s-3);
-    left: calc(var(--rail-x) + 1.25rem);
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 90;
-    width: min(30rem, calc(100vw - var(--rail-x) - 3rem));
+    width: min(32rem, calc(100vw - 2 * var(--s-2)));
     display: grid;
     gap: 0.5rem;
   }
@@ -164,10 +165,12 @@
   .pill-status {
     font-size: 0.72rem;
     color: var(--bus);
-    padding-left: 1rem;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.5em;
+    margin-bottom: var(--s-2);
   }
 
   .pill-panel {
@@ -228,6 +231,19 @@
     font-size: 0.8em;
   }
 
+  /* Grounding refs are inline links, not the block chapter cards above. */
+  .pill-results :global(.ctx a.ref) {
+    display: inline;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    color: var(--capsule);
+  }
+
+  .pill-results :global(.ctx a.ref:hover) {
+    text-decoration: underline;
+  }
+
   .pill-mode,
   .pill-consent {
     margin-top: var(--s-2);
@@ -253,7 +269,6 @@
 
   @media (max-width: 640px) {
     .pill-wrap {
-      left: var(--s-2);
       width: calc(100vw - 2 * var(--s-2));
     }
   }
@@ -333,9 +348,17 @@
     }
   }
 
-  // Contextual lens on focus: where you are -> the chapters behind it.
+  // Focus reopens what you were doing: a conversation in progress comes
+  // back (it survives navigation; the click-away that closed it should not
+  // cost the thread). Otherwise, the contextual lens: where you are -> the
+  // chapters behind it.
   input.addEventListener('focus', () => {
     if (!panel.hidden || input.value) return;
+    if (transcript.length) {
+      showPanel();
+      renderTranscript();
+      return;
+    }
     const section = currentSection();
     if (!section) return;
     void searchBook(queryForSection(section), 3).then((chapters) => {
@@ -456,7 +479,15 @@
       if (t.refs?.length) {
         const ctx = document.createElement('p');
         ctx.className = 'ctx mono';
-        ctx.textContent = `grounded in: ${t.refs.map((r) => r.title).join(' · ')}`;
+        ctx.append('grounded in: ');
+        t.refs.forEach((r, i) => {
+          if (i > 0) ctx.append(' · ');
+          const a = document.createElement('a');
+          a.className = 'ref';
+          a.href = `/book/${r.slug}/`;
+          a.textContent = r.title;
+          ctx.append(a);
+        });
         results.append(ctx);
       }
     }
