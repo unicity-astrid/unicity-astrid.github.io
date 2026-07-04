@@ -17,17 +17,16 @@
       watch the guard stop it cold.
     </p>
     <p class="mono live-caption">
-      the ordering here is bus topology: the guard owns the input topic and
-      republishes to a guarded one. On a native install, the kernel can also
-      enforce interceptor priority.
+      this isn’t a polite request in a prompt. The guard owns the only door
+      in; there is no way to be heard without going through it.
     </p>
   </div>
 
   <div class="layers-rig">
     <div class="layers-chain" aria-hidden="true">
-      <span class="dock-chip" data-dock="capsule">site-guard · reads site.v1.input.*</span>
-      <span class="chain-arrow mono">↓ site.v1.guarded.text</span>
-      <span class="dock-chip" data-dock="capsule">site-echo · replies</span>
+      <span class="dock-chip" data-dock="capsule">the guard · reads everything first</span>
+      <span class="chain-arrow mono">↓ only what the guard passes</span>
+      <span class="dock-chip" data-dock="capsule">the echo · replies</span>
     </div>
 
     <form class="oval-form" id="layers-form">
@@ -36,7 +35,7 @@
         class="oval-input mono"
         type="text"
         maxlength="120"
-        placeholder="say something to the bus…"
+        placeholder="say something…"
         autocomplete="off"
         disabled
       />

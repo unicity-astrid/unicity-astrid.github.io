@@ -23,7 +23,7 @@
 
   <div class="cap-rig">
     <div class="card cap-card" id="cap-card" data-dock="notes-agent">
-      <p class="mono cap-title">capsule: <span class="capsule-word">notes-agent</span></p>
+      <p class="mono cap-title">an agent called <span class="capsule-word">notes-agent</span></p>
       <div class="cap-actions">
         <button class="cap-btn mono" data-res="/home/notes" data-perm="read">
           read <span>~/notes</span>
@@ -36,15 +36,15 @@
         </button>
       </div>
       <p class="cap-result mono" id="cap-result" aria-live="polite">
-        waiting for the kernel…
+        waiting for Astrid to finish waking up…
       </p>
     </div>
     <div class="card cap-ledger">
       <p class="mono cap-title dim" id="cap-ledger-title">decision log</p>
       <ol id="cap-ledger" class="mono" reversed></ol>
       <p class="mono cap-ledger-note dim" id="cap-ledger-note">
-        every entry is a real CapabilityStore decision; the hash-linked audit
-        view lands with the astrid-audit wasm fix
+        every entry is a real decision made by the permission system running
+        inside this page, the moment you clicked
       </p>
     </div>
   </div>
@@ -225,13 +225,13 @@
       void bridge.grant(PRINCIPAL, '/home/notes', 'read').then(() => {
         lastResult ??= {
           kind: '',
-          text: 'capability store armed · notes-agent holds: read ~/notes',
+          text: 'notes-agent holds exactly one permission: read ~/notes',
         };
         wire();
       });
     } else if (status === 'offline') {
       const result = document.getElementById('cap-result');
-      if (result) result.textContent = 'kernel offline in this browser; demo unavailable (never faked)';
+      if (result) result.textContent = 'Astrid isn’t running in this browser, so this demo is off. We don’t fake it.';
     }
   });
 

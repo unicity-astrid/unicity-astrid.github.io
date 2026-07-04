@@ -1,14 +1,14 @@
 ---
 /** Section 3 — "Everything else is a capsule."
  *  The capsules clamp onto the rail one by one as they scroll into view;
- *  each chip carries a real topic path from the bus registry. */
+ *  each chip pairs a part with what it does for you, in plain words. */
 const capsules = [
-  { name: 'provider', topic: 'prompt_builder.v1.hook.before_build' },
-  { name: 'agent loop', topic: 'react.v1.loop.step' },
-  { name: 'tools', topic: 'tool.v1.request.describe' },
-  { name: 'memory', topic: 'memory.v1.recall' },
-  { name: 'session', topic: 'session.v1.thread.append' },
-  { name: 'skills', topic: 'skills.v1.list' },
+  { name: 'the AI', does: 'the brain — swap it for any model, any vendor' },
+  { name: 'the agent', does: 'thinks in steps, uses tools, reports back' },
+  { name: 'the tools', does: 'files, web, commands — each one sealed' },
+  { name: 'the memory', does: 'what it learned yesterday, still there today' },
+  { name: 'the conversation', does: 'every exchange, kept and resumable' },
+  { name: 'the skills', does: 'how-to knowledge any agent can pick up' },
 ];
 ---
 
@@ -18,7 +18,7 @@ const capsules = [
       capsules.map((c) => (
         <div class="capsule-row">
           <span class="dock-chip" data-dock={c.name}>{c.name}</span>
-          <code class="topic">{c.topic}</code>
+          <span class="topic">{c.does}</span>
         </div>
       ))
     }
@@ -87,8 +87,8 @@ const capsules = [
   }
 
   .topic {
-    font-size: 0.7rem;
-    color: var(--text-faint);
+    font-size: var(--step--1);
+    color: var(--text-dim);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

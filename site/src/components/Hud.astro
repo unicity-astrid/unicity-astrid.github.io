@@ -7,15 +7,15 @@
  */
 ---
 
-<button id="hud" class="hud mono" aria-expanded="false" aria-controls="hud-drawer" title="Kernel status">
+<button id="hud" class="hud mono" aria-expanded="false" aria-controls="hud-drawer" title="What's running this page">
   <span id="hud-dot" class="hud-dot" data-state="booting" aria-hidden="true"></span>
-  <span id="hud-text">booting kernel…</span>
+  <span id="hud-text">waking Astrid…</span>
 </button>
 
 <aside id="hud-drawer" class="hud-drawer card" hidden>
   <header class="hud-drawer-head">
-    <h2 class="mono">kernel</h2>
-    <button id="hud-close" class="hud-close mono" aria-label="Close kernel panel">✕</button>
+    <h2 class="mono">under the hood</h2>
+    <button id="hud-close" class="hud-close mono" aria-label="Close panel">✕</button>
   </header>
   <dl class="hud-facts mono">
     <div><dt>state</dt><dd id="hud-f-state">booting</dd></div>
@@ -281,7 +281,7 @@
       $('hud-f-build').textContent = `astrid-kernel@${commit}`;
       startTicker();
     } else if (status === 'offline') {
-      text.textContent = 'kernel offline (static mode)';
+      text.textContent = 'not running in this browser';
     }
   });
 
@@ -291,12 +291,12 @@
       const bridge = kernel();
       if (!bridge) return;
       const events = bridge.eventsRouted();
-      text.textContent = `kernel online · ${events} events routed`;
+      text.textContent = `live · ${events} messages carried`;
       $('hud-f-events').textContent = String(events);
-      // the audit read surface is pending a core wasm fix; never fake it
+      // never fake the audit surface when the browser build lacks it
       $('hud-f-audit').textContent = bridge.auditLen
         ? String(await bridge.auditLen())
-        : 'pending core fix';
+        : 'not in the browser build yet';
       if (!drawer.hidden) await refreshAudit();
     };
     void tick();
@@ -309,7 +309,7 @@
       const list = $('hud-audit');
       if (!list.childElementCount) {
         const li = document.createElement('li');
-        li.innerHTML = '<span class="action">in-browser audit reads land with the astrid-audit wasm fix</span>';
+        li.innerHTML = '<span class="action">the audit ledger isn’t readable in the browser build yet</span>';
         list.append(li);
       }
       return;

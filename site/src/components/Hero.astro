@@ -23,7 +23,7 @@ import CapsuleRing from './CapsuleRing.astro';
     </div>
     <p class="hero-claim mono" id="hero-claim" data-state="booting" data-dock="kernel">
       <span class="hero-claim-dot" aria-hidden="true"></span>
-      <span id="hero-claim-text">booting the real Astrid kernel in your tab…</span>
+      <span id="hero-claim-text">waking the real Astrid up in this tab…</span>
     </p>
   </div>
 </header>
@@ -106,9 +106,9 @@ import CapsuleRing from './CapsuleRing.astro';
     const bridge = kernel();
     claim.dataset.state = status;
     if (status === 'online' && bridge) {
-      text.textContent = `this page is running the real Astrid kernel · astrid-kernel@${bridge.kernelCommit()}`;
+      text.textContent = 'this page is running the real Astrid, live, right now';
     } else if (status === 'offline') {
-      text.textContent = 'kernel unavailable in this browser · showing static scenes';
+      text.textContent = 'Astrid can’t run in this browser · showing the story without the live demo';
     }
   }
   onKernel(apply);
