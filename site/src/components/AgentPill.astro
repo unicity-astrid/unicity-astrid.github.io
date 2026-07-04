@@ -320,6 +320,13 @@
     panel.hidden = false;
   }
 
+  // Other sections can summon the resident: the pill is fixed (always on
+  // screen), so summoning is just focusing the input — the focus handler
+  // below does the right thing (transcript if one exists, else the lens).
+  document.addEventListener('astrid:pill-open', () => {
+    input.focus();
+  });
+
   function renderChapters(chapters: Chapter[], heading?: string): void {
     results.innerHTML = '';
     if (heading) {

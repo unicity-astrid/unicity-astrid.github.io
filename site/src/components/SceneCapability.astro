@@ -207,6 +207,7 @@
 <script>
   import { onKernel, kernel, kernelStatus } from '../scripts/kernel';
   import type { AstridBridge } from '../scripts/kernel';
+  import { bump } from '../scripts/site-tally';
 
   const PRINCIPAL = 'site-visitor';
 
@@ -265,6 +266,7 @@
             note = ' (granted just now, with your approval)';
           }
           flash(btn, ok);
+          bump(ok ? 'granted' : 'denied');
           lastResult = {
             kind: ok ? 'grant' : 'deny',
             text: ok

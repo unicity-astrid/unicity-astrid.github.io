@@ -1,0 +1,84 @@
+---
+/** Section 8 — the resident. The page's most buried treasure, staged: a
+ *  real agent loop lives in this tab (react capsule + session history +
+ *  a local model), and this section hands the visitor to it. The button
+ *  summons the pill; nothing here fakes readiness — status comes from the
+ *  same bus events the pill itself renders. */
+---
+
+<section class="agent hairline-top" id="resident" data-scene>
+  <div class="wrap agent-grid">
+    <div class="prose">
+      <p class="eyebrow">08 · the resident</p>
+      <h2 class="agent-title">Someone lives on this page.</h2>
+      <p>
+        Not a chat widget calling a server — a real agent running on the OS
+        in this tab. Its reasoning loop, its conversation history, and its
+        connection to a language model are each a capsule on the same engine
+        you've been poking at. The model itself runs on your GPU, in your
+        browser, after you say yes to the download. Nothing leaves your
+        machine.
+      </p>
+      <p class="dim">
+        It has read the book this site ships with, it knows which section
+        you're looking at, and your conversation survives you wandering off
+        to other pages.
+      </p>
+      <button class="btn btn-primary" id="agent-summon" type="button">
+        Talk to it →
+      </button>
+    </div>
+  </div>
+</section>
+
+<style>
+  .agent {
+    padding-block: var(--s-8);
+    background:
+      radial-gradient(50% 60% at 80% 50%, color-mix(in srgb, var(--bus) 6%, transparent), transparent);
+  }
+
+  .agent-grid {
+    display: grid;
+  }
+
+  .agent-title {
+    font-size: var(--step-4);
+    margin-block: var(--s-2) var(--s-3);
+  }
+
+  .agent .prose {
+    max-width: 46rem;
+  }
+
+  .agent .dim {
+    margin-bottom: var(--s-4);
+  }
+
+  #agent-summon {
+    justify-self: start;
+  }
+</style>
+
+<script>
+  import { onKernel, kernelStatus } from '../scripts/kernel';
+
+  // The button summons the pill: one custom event, handled by the pill
+  // itself (which owns panel/focus behaviour). Inert until the kernel is
+  // actually online — no dead clicks, no faked readiness. Re-bound per
+  // navigation because the button is re-created.
+  function wire(): void {
+    const btn = document.getElementById('agent-summon') as HTMLButtonElement | null;
+    if (!btn) return;
+    btn.disabled = kernelStatus() !== 'online';
+    btn.addEventListener('click', () => {
+      document.dispatchEvent(new CustomEvent('astrid:pill-open'));
+    });
+  }
+  onKernel(() => {
+    const btn = document.getElementById('agent-summon') as HTMLButtonElement | null;
+    if (btn) btn.disabled = kernelStatus() !== 'online';
+  });
+  wire();
+  document.addEventListener('astro:page-load', wire);
+</script>

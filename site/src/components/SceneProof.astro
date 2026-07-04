@@ -1,44 +1,51 @@
 ---
-/** Section 6 — "Proof, not promises." The five-layer gate, compact, plus the
- *  live audit strip (real entries this page generated, once the kernel is up). */
-const layers = [
-  { name: 'Input screening', body: 'Everything arriving from outside is labelled untrusted before any AI reasons about it.' },
-  { name: 'Permission checks', body: 'Every action is checked against what you actually granted. No permission, no action.' },
-  { name: 'Tool-level gates', body: 'Each tool enforces its own rules on top, so one mistake cannot open everything.' },
-  { name: 'The sandbox', body: 'Parts run in sealed boxes with no reach into your system. If something breaks, it breaks inside the box.' },
-  { name: 'Approval and the record', body: 'You approve the irreversible, and a tamper-evident record remembers everything, permanently.' },
+/** Section 7 — the receipt. The page's closing argument is a till-style
+ *  printout of what the OS in this tab actually did while the visitor was
+ *  here: real message counts, their guard blocks, their permission
+ *  decisions. The five-lock gate rides along as one compact strip — the
+ *  receipt is the proof; the locks are the mechanism. Numbers only move
+ *  when the visitor makes them move; a short receipt is an honest one. */
+const locks = [
+  'input labelled untrusted',
+  'permission checks',
+  'tool-level gates',
+  'the sandbox',
+  'approval + the permanent record',
 ];
 ---
 
 <section class="proof hairline-top" id="proof" data-scene>
   <div class="wrap proof-grid">
     <div class="prose">
-      <p class="eyebrow">07 · the receipts</p>
+      <p class="eyebrow">07 · the receipt</p>
       <h2 class="proof-title">Proof, not promises.</h2>
       <p>
         Most AI safety is a polite request written into a prompt. Astrid's is
         five separate locks, each of which must fail before anything is lost,
         and a permanent record that cannot quietly forget. You don't have to
-        trust it; you can check it.
+        trust that. Below is what the OS running in this tab actually did
+        while you were here.
       </p>
-      <p class="mono live-caption" id="proof-caption" hidden>
-        the entries below are real: your clicks in the capability demo are in
-        this chain
+      <p class="mono locks-strip dim">
+        {locks.join(' · ')}
       </p>
     </div>
-    <ol class="layers">
-      {
-        layers.map((l, i) => (
-          <li class="layer" style={`--i:${i}`}>
-            <span class="mono layer-n">{String(i + 1).padStart(2, '0')}</span>
-            <div>
-              <h3>{l.name}</h3>
-              <p class="dim">{l.body}</p>
-            </div>
-          </li>
-        ))
-      }
-    </ol>
+
+    <div class="card receipt mono">
+      <p class="receipt-head">ASTRID · THIS TAB · LIVE</p>
+      <dl class="receipt-rows">
+        <div><dt>messages carried</dt><dd id="rc-events">0</dd></div>
+        <div><dt>stopped by the guard</dt><dd id="rc-blocked">0</dd></div>
+        <div><dt>echo replies delivered</dt><dd id="rc-replies">0</dd></div>
+        <div><dt>permissions granted to you</dt><dd id="rc-granted">0</dd></div>
+        <div class="receipt-deny"><dt>permissions denied to you</dt><dd id="rc-denied">0</dd></div>
+      </dl>
+      <p class="receipt-note dim" id="rc-note">
+        short receipt? You haven't touched the demos yet — nothing here moves
+        unless you move it.
+      </p>
+      <p class="receipt-foot">— NOTHING STAGED · NOTHING FAKED —</p>
+    </div>
   </div>
 </section>
 
@@ -49,7 +56,7 @@ const layers = [
 
   .proof-grid {
     display: grid;
-    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-columns: minmax(0, 6fr) minmax(0, 6fr);
     gap: var(--s-6);
     align-items: start;
   }
@@ -65,55 +72,122 @@ const layers = [
     margin-block: var(--s-2) var(--s-3);
   }
 
-  .layers {
-    list-style: none;
-    padding: 0;
-    display: grid;
-  }
-
-  .layer {
-    display: flex;
-    gap: var(--s-3);
-    padding: var(--s-3) var(--s-2);
-    border-top: 1px solid var(--line);
-  }
-
-  .layer:last-child {
-    border-bottom: 1px solid var(--line);
-  }
-
-  .layer-n {
-    color: var(--audit);
-    font-size: var(--step--1);
-    padding-top: 0.35em;
-  }
-
-  .layer h3 {
-    font-size: var(--step-1);
-    margin-bottom: 0.25em;
-  }
-
-  .layer .dim {
-    font-size: var(--step--1);
-  }
-
-  .live-caption {
+  .locks-strip {
     margin-top: var(--s-3);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 2;
+  }
+
+  /* the till receipt: dashed edges, tabular numerals, no decoration */
+  .receipt {
+    max-width: 26rem;
+    justify-self: end;
+    width: 100%;
+    padding: var(--s-3) var(--s-3) var(--s-2);
+    border-style: dashed;
     font-size: var(--step--1);
-    color: var(--audit);
+  }
+
+  @media (max-width: 900px) {
+    .receipt {
+      justify-self: start;
+    }
+  }
+
+  .receipt-head {
+    letter-spacing: 0.22em;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: var(--s-1);
+    margin-bottom: var(--s-2);
+  }
+
+  .receipt-rows {
+    display: grid;
+    gap: 0.45em;
+    margin-bottom: var(--s-2);
+  }
+
+  .receipt-rows div {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--s-2);
+  }
+
+  .receipt-rows dt {
+    color: var(--text-dim);
+  }
+
+  .receipt-rows dd {
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  .receipt-deny dd {
+    color: var(--deny);
+  }
+
+  .receipt-note {
+    font-size: 0.72rem;
+    line-height: 1.5;
+    margin-bottom: var(--s-2);
+  }
+
+  .receipt-foot {
+    text-align: center;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    color: var(--text-faint);
+    border-top: 1px dashed var(--line);
+    padding-top: var(--s-1);
   }
 </style>
 
 <script>
-  import { onKernel, kernelStatus, kernel } from '../scripts/kernel';
+  import { onKernel, kernel } from '../scripts/kernel';
+  import { onTally, currentTally, bump } from '../scripts/site-tally';
 
-  // only claim the chain is on the page once the audit read surface exists;
-  // re-applied per navigation because the caption element is re-created
-  function apply(): void {
-    const caption = document.getElementById('proof-caption');
-    if (!caption) return;
-    caption.hidden = kernelStatus() !== 'online' || !kernel()?.auditTail;
+  // Real sources only: the kernel's own event counter, the guard/echo bus
+  // topics, and the permission demo's store decisions. Elements are looked
+  // up per render because navigations re-create them; module state (the
+  // subscriptions, the tally) survives.
+  let subscribed = false;
+  let ticking = false;
+
+  function render(): void {
+    const t = currentTally();
+    const set = (id: string, v: number | string) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(v);
+    };
+    set('rc-blocked', t.blocked);
+    set('rc-replies', t.replies);
+    set('rc-granted', t.granted);
+    set('rc-denied', t.denied);
+    const note = document.getElementById('rc-note');
+    if (note) note.hidden = t.blocked + t.replies + t.granted + t.denied > 0;
   }
-  onKernel(apply);
-  document.addEventListener('astro:page-load', apply);
+
+  onKernel((status, bridge) => {
+    if (status !== 'online' || !bridge) return;
+    if (!subscribed) {
+      subscribed = true;
+      bridge.subscribe('site.v1.guard.blocked', () => bump('blocked'));
+      bridge.subscribe('site.v1.echo.reply', () => bump('replies'));
+    }
+    if (!ticking) {
+      ticking = true;
+      setInterval(() => {
+        const b = kernel();
+        const el = document.getElementById('rc-events');
+        if (b && el) el.textContent = String(b.eventsRouted());
+      }, 1500);
+    }
+  });
+
+  onTally(render);
+  document.addEventListener('astro:page-load', render);
 </script>

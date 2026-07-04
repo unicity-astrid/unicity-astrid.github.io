@@ -286,6 +286,18 @@ const front = burst(170, 23, 130, 255);
   addEventListener('resize', onScrub, { passive: true });
   document.addEventListener('astro:page-load', onScrub);
 
+  // The wake-up is a MOMENT: the instant the kernel comes online, the eye
+  // flares and a real event rides the rail from top to bottom — the pulse
+  // is a genuine publish, so the choreography is the boot, not an actor
+  // playing the boot.
+  let woke = false;
+  onKernel((status, bridge) => {
+    if (status !== 'online' || !bridge || woke) return;
+    woke = true;
+    burst?.kick(16);
+    void bridge.publish('site.v1.kernel.awake', JSON.stringify({ at: Date.now() }));
+  });
+
   // The ornament is an instrument: real routed kernel events nudge the
   // wheels and light the accent planks. One module-lifetime poll of the
   // kernel's event counter; deltas become kicks.

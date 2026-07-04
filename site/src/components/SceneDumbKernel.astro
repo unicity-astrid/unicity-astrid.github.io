@@ -25,10 +25,13 @@
       <span id="dk-count">0</span> so far in this scene
     </p>
     <p class="mono live-caption off-caption" id="dk-off" hidden>
-      the part of this page that sends messages is switched off. The engine
-      still runs; nobody is talking. Switch it back on from the panel, top
-      right.
+      dead. That was a real uninstall — the part is out of the engine and its
+      permission token was revoked on the spot. The engine itself keeps
+      running; there is simply nobody left to talk.
     </p>
+    <button class="dk-kill mono" id="dk-kill" hidden data-armed="true">
+      ✕ uninstall the part that powers this section
+    </button>
   </div>
   <div class="endpoints" aria-hidden="true">
     <span class="dock-chip" data-dock="uplink">your terminal</span>
@@ -80,11 +83,44 @@
   .off-caption {
     color: var(--deny);
   }
+
+  /* the dare: a real uninstall button, in daylight instead of a drawer */
+  .dk-kill {
+    margin-top: var(--s-3);
+    justify-self: start;
+    background: none;
+    border: 1px solid color-mix(in srgb, var(--deny) 45%, transparent);
+    border-radius: 999px;
+    color: var(--deny);
+    font-size: var(--step--1);
+    padding: 0.55em 1.2em;
+    cursor: pointer;
+    transition: border-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+  }
+
+  .dk-kill:hover {
+    border-color: var(--deny);
+  }
+
+  .dk-kill[data-armed='false'] {
+    border-color: color-mix(in srgb, var(--grant) 45%, transparent);
+    color: var(--grant);
+  }
+
+  .dk-kill[data-armed='false']:hover {
+    border-color: var(--grant);
+  }
+
+  /* the honest consequence: the section visibly dies with its capsule */
+  .scene[data-dead='true'] .endpoints {
+    opacity: 0.25;
+    transition: opacity var(--t-med) var(--ease-out);
+  }
 </style>
 
 <script>
   import { onKernel, kernel, kernelStatus } from '../scripts/kernel';
-  import { capsuleState, onSectionCapsules } from '../scripts/section-capsules';
+  import { capsuleState, onSectionCapsules, toggleCapsule } from '../scripts/section-capsules';
 
   // Module state survives client-router navigations; elements do not. All
   // DOM refs are looked up at use time, and wire() re-arms per page visit.
@@ -98,11 +134,24 @@
     const caption = document.getElementById('dk-caption');
     const offNote = document.getElementById('dk-off');
     const count = document.getElementById('dk-count');
-    if (caption) caption.hidden = kernelStatus() !== 'online';
+    const kill = document.getElementById('dk-kill') as HTMLButtonElement | null;
+    const section = document.getElementById('dumb-kernel');
+    const state = capsuleState('site-pulse');
+    const dead = state === 'uninstalled';
+    if (caption) caption.hidden = kernelStatus() !== 'online' || dead;
     // Only flag the uninstalled state when the capsule system is actually
     // present in this build; 'unavailable' keeps the old caption honest.
-    if (offNote) offNote.hidden = capsuleState('site-pulse') !== 'uninstalled';
+    if (offNote) offNote.hidden = !dead;
     if (count) count.textContent = String(seen);
+    if (section) section.dataset.dead = String(dead);
+    if (kill) {
+      // the dare only appears when the uninstall would be REAL
+      kill.hidden = state === 'unavailable' || state === 'error';
+      kill.dataset.armed = String(!dead);
+      kill.textContent = dead
+        ? '↺ reinstall it — the section comes back to life'
+        : '✕ uninstall the part that powers this section';
+    }
   }
 
   // The page is the clock (a sandboxed guest has no timer authority): real
@@ -142,6 +191,8 @@
       }
     });
     io.observe(section);
+    const kill = document.getElementById('dk-kill');
+    kill?.addEventListener('click', () => void toggleCapsule('site-pulse'));
     applyState();
   }
 

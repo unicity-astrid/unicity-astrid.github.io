@@ -37,17 +37,17 @@ const audiences = [
   <div class="wrap">
     <p class="eyebrow">06 · who rides it</p>
     <h2 class="aud-title">Different seats,<br />same machine.</h2>
-    <div class="aud-grid">
+    <div class="aud-rows">
       {
         audiences.map((a) => (
-          <article class="card aud-card">
+          <a class="aud-row" href={a.href}>
             <p class="mono aud-kicker">{a.kicker}</p>
-            <h3>{a.title}</h3>
-            <p class="dim">{a.body}</p>
-            <a class="mono aud-link" href={a.href}>
-              {a.link} →
-            </a>
-          </article>
+            <div class="aud-body">
+              <h3>{a.title}</h3>
+              <p class="dim">{a.body}</p>
+            </div>
+            <span class="mono aud-link" aria-hidden="true">{a.link} →</span>
+          </a>
         ))
       }
     </div>
@@ -55,6 +55,8 @@ const audiences = [
 </section>
 
 <style>
+  /* editorial rows, not a card grid: the demos above already made the
+     argument — this is the index of doors, kept quiet on purpose */
   .aud {
     padding-block: var(--s-8);
   }
@@ -64,23 +66,35 @@ const audiences = [
     margin-block: var(--s-2) var(--s-5);
   }
 
-  .aud-grid {
+  .aud-rows {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  }
+
+  .aud-row {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 7fr) minmax(0, 2fr);
     gap: var(--s-3);
+    align-items: baseline;
+    padding-block: var(--s-3);
+    border-top: 1px solid var(--line);
+    color: inherit;
+    transition: background var(--t-fast) var(--ease-out);
   }
 
-  .aud-card {
-    padding: var(--s-4);
-    display: grid;
-    gap: var(--s-2);
-    align-content: start;
-    transition: border-color var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out);
+  .aud-row:last-child {
+    border-bottom: 1px solid var(--line);
   }
 
-  .aud-card:hover {
-    border-color: var(--line-bright);
-    transform: translateY(-3px);
+  .aud-row:hover {
+    text-decoration: none;
+    background: color-mix(in srgb, var(--bg-raised) 55%, transparent);
+  }
+
+  @media (max-width: 900px) {
+    .aud-row {
+      grid-template-columns: 1fr;
+      gap: var(--s-1);
+    }
   }
 
   .aud-kicker {
@@ -90,17 +104,30 @@ const audiences = [
     color: var(--capsule);
   }
 
-  .aud-card h3 {
-    font-size: var(--step-2);
+  .aud-body h3 {
+    font-size: var(--step-1);
+    margin-bottom: 0.3em;
   }
 
-  .aud-card .dim {
+  .aud-body .dim {
     font-size: var(--step--1);
-    line-height: 1.65;
+    line-height: 1.6;
+    max-width: 52ch;
   }
 
   .aud-link {
     font-size: var(--step--1);
-    justify-self: start;
+    justify-self: end;
+    color: var(--text-dim);
+  }
+
+  @media (max-width: 900px) {
+    .aud-link {
+      justify-self: start;
+    }
+  }
+
+  .aud-row:hover .aud-link {
+    color: var(--text);
   }
 </style>
