@@ -167,24 +167,42 @@ const front = burst(170, 23, 130, 255);
 </style>
 
 <script>
-  import { startBurst } from '../scripts/burst-gl';
+  import { startBurst, type BurstHandle } from '../scripts/burst-gl';
+  import { onKernel, kernel } from '../scripts/kernel';
 
   // The live 3D burst; the static SVG stays as the no-WebGL2 fallback. The
   // canvas is re-created on every client-router visit and browsers cap live
   // WebGL contexts, so each visit boots a fresh burst and the swap-out
   // releases the old one.
-  let stop: (() => void) | null = null;
+  let burst: BurstHandle | null = null;
   function wire(): void {
     const canvas = document.getElementById('burst-gl') as HTMLCanvasElement | null;
-    if (!canvas || stop) return;
+    if (!canvas || burst) return;
     // burst centre well right of the headline so the crescent stays clear
-    stop = startBurst(canvas, { x: 0.78, y: 0.5 });
-    if (stop) canvas.parentElement?.setAttribute('data-gl', 'true');
+    burst = startBurst(canvas, { x: 0.78, y: 0.5 });
+    if (burst) canvas.parentElement?.setAttribute('data-gl', 'true');
   }
   wire();
   document.addEventListener('astro:page-load', wire);
   document.addEventListener('astro:before-swap', () => {
-    stop?.();
-    stop = null;
+    burst?.stop();
+    burst = null;
+  });
+
+  // The ornament is an instrument: real routed kernel events nudge the
+  // wheels and light the accent planks. One module-lifetime poll of the
+  // kernel's event counter; deltas become kicks.
+  let lastRouted = -1;
+  let polling = false;
+  onKernel((status) => {
+    if (status !== 'online' || polling) return;
+    polling = true;
+    setInterval(() => {
+      const b = kernel();
+      if (!b || !burst) return;
+      const routed = Number(b.eventsRouted());
+      if (lastRouted >= 0 && routed > lastRouted) burst.kick(routed - lastRouted);
+      lastRouted = routed;
+    }, 600);
   });
 </script>

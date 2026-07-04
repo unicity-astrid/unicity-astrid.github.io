@@ -64,6 +64,8 @@ in float vShade;
 in float vAccent;
 in float vR;
 uniform float uTime;
+// live bus energy: recent kernel events make the accent planks glow
+uniform float uEnergy;
 out vec4 outColor;
 
 float hash(vec2 p) {
@@ -74,8 +76,8 @@ void main() {
   // monochrome violet-greys; definition comes from the lighting, like the
   // reference. A sparse few planks carry the bus/audit accents.
   vec3 base = mix(vec3(0.10, 0.11, 0.17), vec3(0.30, 0.31, 0.47), vShade);
-  if (vAccent > 1.5) base = vec3(0.30, 0.55, 0.52);        // bus teal
-  else if (vAccent > 0.5) base = vec3(0.55, 0.44, 0.82);   // capsule purple
+  if (vAccent > 1.5) base = vec3(0.30, 0.55, 0.52) * (1.0 + uEnergy * 0.7);
+  else if (vAccent > 0.5) base = vec3(0.55, 0.44, 0.82) * (1.0 + uEnergy * 0.7);
   // wide dynamic range: shadowed faces sink toward the bg, lit faces glow
   vec3 col = base * (0.26 + 1.15 * vLight);
   // surface tooth; the full-frame film grain is a separate pass
@@ -268,13 +270,21 @@ function link(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgram 
   return prog;
 }
 
-// the back wheel renders at reduced resolution; the bilinear upsample is
-// the depth blur (cheap, and softer than it sounds)
-const BLUR_SCALE = 0.38;
+// cinematic depth of field on the cheap: every wheel renders at reduced
+// resolution and the bilinear upsample is the blur — slight on the front
+// wheel, heavier toward the back (index 0 = back)
+const BLUR_SCALES = [0.34, 0.55, 0.8];
+
+export interface BurstHandle {
+  /** stop the loop and release the GL context */
+  stop(): void;
+  /** feed real kernel activity in: events nudge the wheels and light accents */
+  kick(events: number): void;
+}
 
 /**
  * Boot the burst on a canvas. Returns null if WebGL2 is unavailable (the
- * caller keeps its static fallback), else a stop function that cancels the
+ * caller keeps its static fallback), else a handle whose stop() cancels the
  * loop and releases the GL context — call it before the canvas leaves the
  * DOM, because browsers cap live WebGL contexts (~16) and client-router
  * navigations mint a fresh canvas each visit. centerFrac places the burst
@@ -283,7 +293,7 @@ const BLUR_SCALE = 0.38;
 export function startBurst(
   canvas: HTMLCanvasElement,
   centerFrac: { x: number; y: number },
-): (() => void) | null {
+): BurstHandle | null {
   const gl = canvas.getContext('webgl2', { alpha: true, antialias: true });
   if (!gl) return null;
 
@@ -336,6 +346,7 @@ export function startBurst(
   const uCenter = gl.getUniformLocation(prog, 'uCenter');
   const uTime = gl.getUniformLocation(prog, 'uTime');
   const uWheel = gl.getUniformLocation(prog, 'uWheel');
+  const uEnergy = gl.getUniformLocation(prog, 'uEnergy');
   const uBlitTex = blitProg ? gl.getUniformLocation(blitProg, 'uTex') : null;
   const uGrainTime = grainProg ? gl.getUniformLocation(grainProg, 'uTime') : null;
   const emptyVao = gl.createVertexArray(); // for attributeless fullscreen tris
@@ -350,12 +361,15 @@ export function startBurst(
   gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   gl.clearColor(0, 0, 0, 0);
 
-  // low-res target for the back wheel
-  const fbo = gl.createFramebuffer();
-  const fboTex = gl.createTexture();
-  const fboDepth = gl.createRenderbuffer();
-  let fboW = 0;
-  let fboH = 0;
+  // one reduced-resolution target per wheel; the scale sets its blur
+  const targets = BLUR_SCALES.map((scale) => ({
+    scale,
+    fbo: gl.createFramebuffer(),
+    tex: gl.createTexture(),
+    depth: gl.createRenderbuffer(),
+    w: 0,
+    h: 0,
+  }));
 
   const DIST = 10;
   const FOVY = (35 * Math.PI) / 180;
@@ -377,20 +391,22 @@ export function startBurst(
     const ndcY = 1 - centerFrac.y * 2;
     gl!.uniform3f(uCenter, (ndcX * aspect * DIST) / f, (ndcY * DIST) / f, -DIST);
 
-    fboW = Math.max(1, Math.round(w * BLUR_SCALE));
-    fboH = Math.max(1, Math.round(h * BLUR_SCALE));
-    gl!.bindTexture(gl!.TEXTURE_2D, fboTex);
-    gl!.texImage2D(gl!.TEXTURE_2D, 0, gl!.RGBA, fboW, fboH, 0, gl!.RGBA, gl!.UNSIGNED_BYTE, null);
-    gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_MIN_FILTER, gl!.LINEAR);
-    gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_MAG_FILTER, gl!.LINEAR);
-    gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_WRAP_S, gl!.CLAMP_TO_EDGE);
-    gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_WRAP_T, gl!.CLAMP_TO_EDGE);
-    gl!.bindRenderbuffer(gl!.RENDERBUFFER, fboDepth);
-    gl!.renderbufferStorage(gl!.RENDERBUFFER, gl!.DEPTH_COMPONENT16, fboW, fboH);
-    gl!.bindFramebuffer(gl!.FRAMEBUFFER, fbo);
-    gl!.framebufferTexture2D(gl!.FRAMEBUFFER, gl!.COLOR_ATTACHMENT0, gl!.TEXTURE_2D, fboTex, 0);
-    gl!.framebufferRenderbuffer(gl!.FRAMEBUFFER, gl!.DEPTH_ATTACHMENT, gl!.RENDERBUFFER, fboDepth);
-    gl!.bindFramebuffer(gl!.FRAMEBUFFER, null);
+    for (const t of targets) {
+      t.w = Math.max(1, Math.round(w * t.scale));
+      t.h = Math.max(1, Math.round(h * t.scale));
+      gl!.bindTexture(gl!.TEXTURE_2D, t.tex);
+      gl!.texImage2D(gl!.TEXTURE_2D, 0, gl!.RGBA, t.w, t.h, 0, gl!.RGBA, gl!.UNSIGNED_BYTE, null);
+      gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_MIN_FILTER, gl!.LINEAR);
+      gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_MAG_FILTER, gl!.LINEAR);
+      gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_WRAP_S, gl!.CLAMP_TO_EDGE);
+      gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_WRAP_T, gl!.CLAMP_TO_EDGE);
+      gl!.bindRenderbuffer(gl!.RENDERBUFFER, t.depth);
+      gl!.renderbufferStorage(gl!.RENDERBUFFER, gl!.DEPTH_COMPONENT16, t.w, t.h);
+      gl!.bindFramebuffer(gl!.FRAMEBUFFER, t.fbo);
+      gl!.framebufferTexture2D(gl!.FRAMEBUFFER, gl!.COLOR_ATTACHMENT0, gl!.TEXTURE_2D, t.tex, 0);
+      gl!.framebufferRenderbuffer(gl!.FRAMEBUFFER, gl!.DEPTH_ATTACHMENT, gl!.RENDERBUFFER, t.depth);
+      gl!.bindFramebuffer(gl!.FRAMEBUFFER, null);
+    }
   }
   resize();
   const ro = new ResizeObserver(resize);
@@ -404,6 +420,7 @@ export function startBurst(
   io.observe(canvas);
 
   const springs = [new WheelSpring(0), new WheelSpring(1), new WheelSpring(2)];
+  let energy = 0;
   let last = 0;
   let raf = 0;
   let stopped = false;
@@ -421,18 +438,23 @@ export function startBurst(
       const dt = last ? (ms - last) / 1000 : 1 / 60;
       last = ms;
       if (!still) for (const s of springs) s.step(t, dt);
+      energy *= Math.exp(-Math.min(dt, 0.1) * 1.6);
 
+      // pass 1: each wheel into its own reduced target (upsample = blur,
+      // slight up front, heavier toward the back)
       gl.useProgram(prog);
       gl.uniform1f(uTime, t);
+      gl.uniform1f(uEnergy, energy);
       gl.enable(gl.DEPTH_TEST);
+      for (let i = 0; i < WHEELS; i++) {
+        const tg = targets[i];
+        gl.bindFramebuffer(gl.FRAMEBUFFER, tg.fbo);
+        gl.viewport(0, 0, tg.w, tg.h);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        drawWheel(i);
+      }
 
-      // pass 1: back wheel into the low-res target (its upsample = blur)
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-      gl.viewport(0, 0, fboW, fboH);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      drawWheel(0);
-
-      // pass 2: composite the soft back wheel, then the sharp wheels on top
+      // pass 2: composite back to front
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -442,15 +464,13 @@ export function startBurst(
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.bindVertexArray(emptyVao);
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, fboTex);
         gl.uniform1i(uBlitTex, 0);
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        for (let i = 0; i < WHEELS; i++) {
+          gl.bindTexture(gl.TEXTURE_2D, targets[i].tex);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+        }
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        gl.enable(gl.DEPTH_TEST);
       }
-      gl.useProgram(prog);
-      drawWheel(1);
-      drawWheel(2);
 
       if (grainProg) {
         gl.useProgram(grainProg);
@@ -465,11 +485,21 @@ export function startBurst(
   };
   raf = requestAnimationFrame(frame);
 
-  return () => {
-    stopped = true;
-    cancelAnimationFrame(raf);
-    ro.disconnect();
-    io.disconnect();
-    gl.getExtension('WEBGL_lose_context')?.loseContext();
+  return {
+    stop() {
+      stopped = true;
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      io.disconnect();
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+    },
+    kick(events: number) {
+      if (events <= 0 || still) return;
+      const n = Math.min(events, 24);
+      // real kernel traffic physically nudges a wheel and lights the accents
+      const i = Math.floor(Math.random() * WHEELS);
+      springs[i].vel += (Math.random() > 0.5 ? 1 : -1) * 0.05 * n;
+      energy = Math.min(energy + n * 0.08, 1.4);
+    },
   };
 }
