@@ -2,9 +2,11 @@
 /** Section 1 — hero. Pure type riding the spine; the claim badge is the
  *  first thing that docks onto the rail, and it is literal: the real kernel
  *  is booting in this tab. */
+import CapsuleRing from './CapsuleRing.astro';
 ---
 
 <header class="hero" id="top">
+  <CapsuleRing />
   <div class="wrap hero-inner">
     <p class="eyebrow">Astrid</p>
     <h1 class="hero-title">
@@ -28,12 +30,15 @@
 
 <style>
   .hero {
+    position: relative;
     min-height: 100svh;
     display: grid;
     align-items: center;
   }
 
   .hero-inner {
+    position: relative;
+    z-index: 1;
     padding-block: var(--s-7);
   }
 

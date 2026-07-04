@@ -1,5 +1,6 @@
 ---
 /** Section 8 — get started + footer. */
+import unicityMark from '../assets/unicity-wordmark.svg?raw';
 ---
 
 <section class="start hairline-top" id="start">
@@ -26,6 +27,17 @@
         Run AI agents and the tools they use without having to trust them.
       </p>
       <p class="mono footer-fine" id="footer-live">ASTRID</p>
+    </div>
+    <div class="wrap footer-made">
+      <a
+        class="footer-unicity"
+        href="https://www.unicity.ai/"
+        aria-label="Unicity"
+        set:html={unicityMark}
+      />
+      <p class="mono footer-fine">
+        Astrid is made by <a href="https://www.unicity.ai/">Unicity</a> · © 2026 Unicity
+      </p>
     </div>
   </footer>
 </section>
@@ -90,6 +102,43 @@
     font-size: 0.72rem;
     letter-spacing: 0.3em;
     color: var(--text-faint);
+  }
+
+  .footer-made {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    flex-wrap: wrap;
+    margin-top: var(--s-4);
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--line);
+  }
+
+  .footer-made .footer-fine {
+    letter-spacing: 0.12em;
+  }
+
+  .footer-made .footer-fine a {
+    color: var(--text-dim);
+  }
+
+  .footer-made .footer-fine a:hover {
+    color: var(--text);
+  }
+
+  .footer-unicity {
+    color: var(--text-faint);
+    display: inline-flex;
+    transition: color var(--t-fast, 0.15s) ease;
+  }
+
+  .footer-unicity:hover {
+    color: var(--text);
+  }
+
+  .footer-unicity :global(svg) {
+    height: 20px;
+    width: auto;
   }
 </style>
 

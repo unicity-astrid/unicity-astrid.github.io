@@ -1,0 +1,84 @@
+---
+/**
+ * Decorative background ornament: a ring of blurred capsule bars, drifting
+ * slowly. It is the site's core metaphor drawn literally: capsules orbiting
+ * a dumb kernel (the empty centre). Pure SVG + CSS, no script, aria-hidden;
+ * the drift stops under prefers-reduced-motion.
+ */
+const N = 18;
+// Mostly capsule-purple with bus-teal and audit-pink accents, like the rail.
+const palette = [
+  'var(--capsule)',
+  'var(--capsule)',
+  'var(--bus)',
+  'var(--capsule)',
+  'var(--audit)',
+  'var(--capsule)',
+];
+const bars = Array.from({ length: N }, (_, i) => ({
+  angle: (360 / N) * i,
+  fill: palette[i % palette.length],
+  opacity: 0.28 + (i % 3) * 0.14,
+  // Slight length variation so the ring reads organic, not mechanical.
+  width: 84 + (i % 4) * 14,
+}));
+---
+
+<div class="ring-wrap" aria-hidden="true">
+  <svg class="ring" viewBox="0 0 600 600">
+    {
+      bars.map((b) => (
+        <rect
+          x={300 - b.width / 2}
+          y="66"
+          width={b.width}
+          height="30"
+          rx="15"
+          fill={b.fill}
+          opacity={b.opacity}
+          transform={`rotate(${b.angle} 300 300)`}
+        />
+      ))
+    }
+  </svg>
+</div>
+
+<style>
+  .ring-wrap {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .ring {
+    position: absolute;
+    top: 50%;
+    left: 68%;
+    width: min(72vmin, 46rem);
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    filter: blur(26px);
+    animation: ring-drift 180s linear infinite;
+  }
+
+  @keyframes ring-drift {
+    to {
+      rotate: 360deg;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ring {
+      animation: none;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .ring {
+      left: 50%;
+      opacity: 0.6;
+    }
+  }
+</style>
