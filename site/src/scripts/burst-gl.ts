@@ -121,14 +121,16 @@ void main() {
   outColor = c;
 }`;
 
-// composite a wheel texture over the page (data is premultiplied)
+// composite a wheel texture over the page (data is premultiplied); uAlpha
+// dims the whole eye when it recedes into its companion pose
 const BLIT_FRAG = `#version 300 es
 precision highp float;
 in vec2 vUv;
 uniform sampler2D uTex;
+uniform float uAlpha;
 out vec4 outColor;
 void main() {
-  outColor = texture(uTex, vUv);
+  outColor = texture(uTex, vUv) * uAlpha;
 }`;
 
 // full-frame film grain: an attributeless fullscreen triangle over the
@@ -137,6 +139,7 @@ const GRAIN_FRAG = `#version 300 es
 precision highp float;
 in vec2 vUv;
 uniform float uTime;
+uniform float uAlpha;
 out vec4 outColor;
 
 float hash(vec2 p) {
@@ -145,8 +148,9 @@ float hash(vec2 p) {
 
 void main() {
   float g = hash(gl_FragCoord.xy + fract(uTime * 1.13) * 47.3);
-  // cool-toned speckle, alpha-weighted so it reads as grain, not fog
-  outColor = vec4(vec3(0.62, 0.64, 0.78), g * g * 0.085);
+  // cool-toned speckle, alpha-weighted so it reads as grain, not fog; it
+  // quietens with the eye so text sections never sit under full grain
+  outColor = vec4(vec3(0.62, 0.64, 0.78), g * g * 0.085 * uAlpha);
 }`;
 
 const rand = (i: number, salt: number): number => {
@@ -295,13 +299,23 @@ export interface BurstHandle {
   stop(): void;
   /** feed real kernel activity in: events nudge the wheels and light accents */
   kick(events: number): void;
-  /**
-   * scroll condensation, 0..1: the wheels spin up, the depth blur tightens,
-   * the accents brighten, and the whole disc contracts toward the condense
-   * target — the dot on the rail the rest of the page builds on. Pure
-   * function of p, so scrolling back re-expands it exactly.
-   */
-  scrub(p: number): void;
+}
+
+/**
+ * Where and how the eye sits, sampled every frame. The caller derives it
+ * from scroll position (a pure function, so scrolling back reverses every
+ * move). x/y are canvas fractions; yaw/pitch are the gaze (0/0 = facing the
+ * visitor dead-on); alpha dims the whole eye; spin (0..1) winds extra
+ * rotation into the wheels during the rise.
+ */
+export interface BurstPose {
+  x: number;
+  y: number;
+  scale: number;
+  yaw: number;
+  pitch: number;
+  alpha: number;
+  spin: number;
 }
 
 /**
@@ -309,15 +323,12 @@ export interface BurstHandle {
  * caller keeps its static fallback), else a handle whose stop() cancels the
  * loop and releases the GL context — call it before the canvas leaves the
  * DOM, because browsers cap live WebGL contexts (~16) and client-router
- * navigations mint a fresh canvas each visit. centerFrac places the burst
- * centre in canvas fractions (x from left, y from top).
+ * navigations mint a fresh canvas each visit. The pose callback is sampled
+ * every frame and fully describes where the eye is and where it looks.
  */
 export function startBurst(
   canvas: HTMLCanvasElement,
-  centerFrac: { x: number; y: number },
-  // where the condensed dot lands, in canvas fractions, re-read every frame
-  // while scrubbing so it tracks resizes (the rail x is in px, not %)
-  condenseTo?: () => { x: number; y: number },
+  pose: () => BurstPose,
 ): BurstHandle | null {
   const gl = canvas.getContext('webgl2', { alpha: true, antialias: true });
   if (!gl) return null;
@@ -376,33 +387,18 @@ export function startBurst(
   const uBlurTex = gl.getUniformLocation(blurProg, 'uTex');
   const uBlurStep = gl.getUniformLocation(blurProg, 'uStep');
   const uBlitTex = gl.getUniformLocation(blitProg, 'uTex');
+  const uBlitAlpha = gl.getUniformLocation(blitProg, 'uAlpha');
   const uGrainTime = grainProg ? gl.getUniformLocation(grainProg, 'uTime') : null;
+  const uGrainAlpha = grainProg ? gl.getUniformLocation(grainProg, 'uAlpha') : null;
   const emptyVao = gl.createVertexArray(); // for attributeless fullscreen tris
 
-  // the eye looks AT the page: pitch shows the planks' side faces (the 3D
-  // read) and yaw turns the disc's face toward the screen centre, left of
-  // the burst, instead of gazing off-frame
-  const PITCH = 0.34;
-  const YAW = -0.52;
-  const rx = ((a: number) => {
-    const c = Math.cos(a), s = Math.sin(a);
-    return [[1, 0, 0], [0, c, -s], [0, s, c]];
-  })(PITCH);
-  const ry = ((a: number) => {
-    const c = Math.cos(a), s = Math.sin(a);
-    return [[c, 0, s], [0, 1, 0], [-s, 0, c]];
-  })(YAW);
-  // M = rx * ry, sent column-major
-  const m = Array.from({ length: 3 }, (_, r) =>
-    Array.from({ length: 3 }, (_, c) =>
-      rx[r][0] * ry[0][c] + rx[r][1] * ry[1][c] + rx[r][2] * ry[2][c],
-    ),
-  );
-  gl.uniformMatrix3fv(uTilt, false, [
-    m[0][0], m[1][0], m[2][0],
-    m[0][1], m[1][1], m[2][1],
-    m[0][2], m[1][2], m[2][2],
-  ]);
+  // the gaze is live: rx(pitch)·ry(yaw), rebuilt per frame from the pose so
+  // the eye can turn to face the visitor as they scroll. Column-major.
+  const tiltOf = (pitch: number, yaw: number): number[] => {
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    return [cy, sp * sy, -cp * sy, 0, cp, sp, sy, -sp * cy, cp * cy];
+  };
 
   // paper rules: no depth test anywhere. Within a wheel, fixed painter's
   // order + backface culling; between wheels, back-to-front compositing.
@@ -481,11 +477,10 @@ export function startBurst(
   io.observe(canvas);
 
   const springs = [new WheelSpring(0), new WheelSpring(1), new WheelSpring(2)];
-  // per-wheel extra rotation over the full condensation (mixed directions,
-  // so the collapse reads as the whole mechanism winding shut)
+  // per-wheel extra rotation wound in by pose.spin over the hero rise
+  // (mixed directions, so the whole mechanism visibly turns as it wakes)
   const SPIN = [2.8, -3.6, 4.6];
   let energy = 0;
-  let scrubP = 0;
   let last = 0;
   let raf = 0;
   let stopped = false;
@@ -499,28 +494,24 @@ export function startBurst(
       if (!still) for (const s of springs) s.step(t, dt);
       energy *= Math.exp(-Math.min(dt, 0.1) * 1.6);
 
-      // condensation: smooth the scroll fraction, contract the disc, and
-      // drift its centre toward the landing dot on the rail
-      const e = scrubP * scrubP * (3 - 2 * scrubP);
-      const tgt = condenseTo?.() ?? centerFrac;
-      const cx = centerFrac.x + (tgt.x - centerFrac.x) * e;
-      const cy = centerFrac.y + (tgt.y - centerFrac.y) * e;
-      // mid-collapse the wheels carry fake velocity so the planks fan out,
-      // then tuck back in as the disc closes to a dot
-      const fan = 4 * scrubP * (1 - scrubP);
+      // the pose is a pure function of scroll (the caller owns that math);
+      // sampling it per frame is what lets the eye rise, grow, turn to face
+      // the visitor, and then recede into its watcher pose — reversibly
+      const P = pose();
 
       gl.viewport(0, 0, tgtW, tgtH);
       for (let i = 0; i < WHEELS; i++) {
         // pass 1: the wheel into its texture (premultiplied)
         gl.useProgram(prog);
         gl.uniform1f(uTime, t);
-        gl.uniform1f(uEnergy, energy + 1.1 * e);
-        gl.uniform1f(uScale, 1 - 0.955 * e);
-        gl.uniform3fv(uCenter, worldFromFrac(cx, cy));
+        gl.uniform1f(uEnergy, energy);
+        gl.uniform1f(uScale, P.scale);
+        gl.uniformMatrix3fv(uTilt, false, tiltOf(P.pitch, P.yaw));
+        gl.uniform3fv(uCenter, worldFromFrac(P.x, P.y));
         gl.uniform3f(
           uWheel,
-          springs[i].theta + SPIN[i] * e,
-          springs[i].vel + SPIN[i] * fan,
+          springs[i].theta + SPIN[i] * P.spin,
+          springs[i].vel,
           WHEEL_Z[i],
         );
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -529,9 +520,8 @@ export function startBurst(
         gl.bindVertexArray(vaos[i]);
         gl.drawArraysInstanced(gl.TRIANGLES, 0, 36, wheels[i].count);
 
-        // pass 2: true Gaussian, horizontal then vertical, per-wheel radius;
-        // the depth of field racks toward sharp as the disc condenses
-        const s = BLUR_STRENGTH[i] * (1 - 0.9 * e);
+        // pass 2: true Gaussian, horizontal then vertical, per-wheel radius
+        const s = BLUR_STRENGTH[i];
         gl.useProgram(blurProg);
         gl.bindVertexArray(emptyVao);
         gl.disable(gl.BLEND);
@@ -556,6 +546,7 @@ export function startBurst(
       gl.bindVertexArray(emptyVao);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.uniform1i(uBlitTex, 0);
+      gl.uniform1f(uBlitAlpha, P.alpha);
       for (let i = 0; i < WHEELS; i++) {
         gl.bindTexture(gl.TEXTURE_2D, wheelTex[i]);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -564,6 +555,7 @@ export function startBurst(
       if (grainProg) {
         gl.useProgram(grainProg);
         gl.uniform1f(uGrainTime, t);
+        gl.uniform1f(uGrainAlpha, P.alpha);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       }
       if (still) return; // one composed frame, then rest
@@ -587,10 +579,6 @@ export function startBurst(
       const i = Math.floor(Math.random() * WHEELS);
       springs[i].vel += (Math.random() > 0.5 ? 1 : -1) * 0.05 * n;
       energy = Math.min(energy + n * 0.08, 1.4);
-    },
-    scrub(p: number) {
-      if (still) return;
-      scrubP = Math.min(1, Math.max(0, p));
     },
   };
 }

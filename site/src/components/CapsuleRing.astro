@@ -92,12 +92,16 @@ const front = burst(170, 23, 130, 255);
 </div>
 
 <style>
+  /* the eye lives on a fixed, full-viewport layer behind ALL content: it
+     follows the visitor down the whole page instead of scrolling away with
+     the hero. z-index -1 keeps it above the body background and below
+     every in-flow section. */
   .ring-wrap {
-    position: absolute;
+    position: fixed;
     inset: 0;
     overflow: hidden;
     pointer-events: none;
-    z-index: 0;
+    z-index: -1;
   }
 
   .ring {
@@ -109,9 +113,15 @@ const front = burst(170, 23, 130, 255);
     translate: -50% -50%;
     /* fade the burst out toward its own edge so it never hard-crops */
     mask-image: radial-gradient(circle, black 58%, transparent 80%);
-    /* no-WebGL fallback still condenses: scale + fade on the same scrub */
-    scale: calc(1 - 0.92 * var(--hero-p, 0));
-    opacity: calc(1 - var(--hero-p, 0) * 0.85);
+    /* the static fallback can't follow the page; it bows out with the hero */
+    opacity: calc(1 - var(--hero-p, 0));
+    /* hidden until we KNOW WebGL2 is unavailable — no flash before the live
+       eye boots (the [data-gl] attribute is set either way, promptly) */
+    display: none;
+  }
+
+  .ring-wrap[data-gl='false'] .ring {
+    display: block;
   }
 
   .layer {
@@ -158,10 +168,6 @@ const front = burst(170, 23, 130, 255);
     display: block;
   }
 
-  .ring-wrap[data-gl='true'] .ring {
-    display: none;
-  }
-
   @media (max-width: 900px) {
     .burst-gl {
       opacity: 0.55;
@@ -170,43 +176,73 @@ const front = burst(170, 23, 130, 255);
 </style>
 
 <script>
-  import { startBurst, type BurstHandle } from '../scripts/burst-gl';
+  import { startBurst, type BurstHandle, type BurstPose } from '../scripts/burst-gl';
+  import { setBurst } from '../scripts/burst-link';
   import { onKernel, kernel } from '../scripts/kernel';
 
-  // The live 3D burst; the static SVG stays as the no-WebGL2 fallback. The
-  // canvas is re-created on every client-router visit and browsers cap live
-  // WebGL contexts, so each visit boots a fresh burst and the swap-out
-  // releases the old one.
+  // The live 3D burst; the static SVG is the no-WebGL2 fallback (shown only
+  // once we KNOW GL failed — never before, so there is no flash of the old
+  // ornament while the eye boots). The canvas is re-created on every
+  // client-router visit and browsers cap live WebGL contexts, so each visit
+  // boots a fresh burst and the swap-out releases the old one.
   let burst: BurstHandle | null = null;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // the condensed dot lands ON the rail: when the hero unpins, the dot rides
-  // the spine off-screen and hands the page over to it
-  function railFrac(): { x: number; y: number } {
-    const v = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue('--rail-x'),
-    );
-    return { x: (Number.isFinite(v) ? v : 64) / innerWidth, y: 0.84 };
+  // The eye's journey, a pure function of scroll position:
+  //   AWAKE  (top of page)  — off to the right, tilted, idling
+  //   FACING (hero scrolled) — rises to centre, grows, turns to meet you
+  //   WATCH  (rest of page) — recedes to the right margin, small and dim,
+  //                           following the scroll and flaring on real work
+  const AWAKE: BurstPose  = { x: 0.78, y: 0.50, scale: 1.00, yaw: -0.52, pitch: 0.34, alpha: 1.00, spin: 0 };
+  const FACING: BurstPose = { x: 0.50, y: 0.44, scale: 1.38, yaw:  0.00, pitch: 0.05, alpha: 1.00, spin: 1 };
+  const WATCH: BurstPose  = { x: 0.86, y: 0.55, scale: 0.50, yaw: -0.34, pitch: 0.22, alpha: 0.35, spin: 1 };
+
+  const smooth = (t: number): number => {
+    const c = Math.min(1, Math.max(0, t));
+    return c * c * (3 - 2 * c);
+  };
+  const mix = (a: BurstPose, b: BurstPose, t: number): BurstPose => ({
+    x: a.x + (b.x - a.x) * t,
+    y: a.y + (b.y - a.y) * t,
+    scale: a.scale + (b.scale - a.scale) * t,
+    yaw: a.yaw + (b.yaw - a.yaw) * t,
+    pitch: a.pitch + (b.pitch - a.pitch) * t,
+    alpha: a.alpha + (b.alpha - a.alpha) * t,
+    spin: a.spin + (b.spin - a.spin) * t,
+  });
+
+  function pose(): BurstPose {
+    const hero = document.getElementById('top');
+    if (!hero) return AWAKE;
+    const r = hero.getBoundingClientRect();
+    const span = Math.max(1, r.height - innerHeight);
+    // p1: how far through the hero pin. p2: how far past the hero's end —
+    // r.bottom stays ≥ viewport height while pinned (so p2 clamps to 0);
+    // once the hero unpins the eye glides into its watcher pose over ~0.8
+    // viewports of scroll.
+    const p1 = smooth(-r.top / span);
+    const p2 = smooth((innerHeight - r.bottom) / (0.8 * innerHeight));
+    return mix(mix(AWAKE, FACING, p1), WATCH, p2);
   }
 
   function wire(): void {
     const canvas = document.getElementById('burst-gl') as HTMLCanvasElement | null;
     if (!canvas || burst) return;
-    // burst centre well right of the headline so the crescent stays clear
-    burst = startBurst(canvas, { x: 0.78, y: 0.5 }, railFrac);
-    if (burst) canvas.parentElement?.setAttribute('data-gl', 'true');
+    burst = startBurst(canvas, pose);
+    canvas.parentElement?.setAttribute('data-gl', burst ? 'true' : 'false');
+    setBurst(burst);
   }
   wire();
   document.addEventListener('astro:page-load', wire);
   document.addEventListener('astro:before-swap', () => {
     burst?.stop();
     burst = null;
+    setBurst(null);
   });
 
-  // scroll drives the condensation: p is the fraction of the hero's extra
-  // height already spent. State is a pure function of scroll position, so
-  // reversing the scroll reverses the collapse. One module-lifetime listener;
-  // pages without a hero simply never match.
+  // --hero-p drives the hero text fade and the SVG fallback (set on the
+  // root so both the hero and the fixed layer see it). One module-lifetime
+  // listener; pages without a hero simply never match.
   let scrollQueued = false;
   function onScrub(): void {
     if (scrollQueued || reduced) return;
@@ -218,9 +254,8 @@ const front = burst(170, 23, 130, 255);
       const r = hero.getBoundingClientRect();
       const span = r.height - innerHeight;
       const p = span > 4 ? Math.min(1, Math.max(0, -r.top / span)) : 0;
-      hero.style.setProperty('--hero-p', p.toFixed(4));
+      document.documentElement.style.setProperty('--hero-p', p.toFixed(4));
       hero.classList.toggle('is-condensed', p > 0.55);
-      burst?.scrub(p);
     });
   }
   addEventListener('scroll', onScrub, { passive: true });
