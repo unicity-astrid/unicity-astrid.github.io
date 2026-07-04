@@ -1,0 +1,270 @@
+---
+/** /registry — the agent builder and capsule registry, shown as a ghosted
+ *  concept preview. Everything interactive is genuinely disabled and the
+ *  page says so up front: this is a preview of what's coming, not a demo
+ *  pretending to work. The flow it previews: pick abilities → bundle into
+ *  one installable file — or skip the file and slot it straight into a
+ *  running Astrid. */
+import Base from '../layouts/Base.astro';
+
+const abilities = [
+  { name: 'memory', note: 'remembers across sessions', on: true },
+  { name: 'the web', note: 'fetch pages, call APIs', on: true },
+  { name: 'your files', note: 'read/write where you allow', on: true },
+  { name: 'run commands', note: 'shell, behind approval', on: false },
+  { name: 'calendar', note: 'read your schedule', on: false },
+  { name: 'email', note: 'draft, never send unasked', on: false },
+  { name: 'discord', note: 'speak in your server', on: false },
+  { name: 'skills', note: 'how-to knowledge packs', on: true },
+];
+
+const registryRows = [
+  { name: 'capsule-http', by: 'unicity', note: 'the web, behind the airlock' },
+  { name: 'capsule-memory', by: 'unicity', note: 'permanent recall' },
+  { name: 'capsule-shell', by: 'unicity', note: 'commands, gated' },
+  { name: 'capsule-chorus', by: 'community', note: 'many models, one voice' },
+];
+---
+
+<Base
+  title="The Registry — coming soon"
+  description="Pick the abilities you want your agent to have, bundle them into one installable file, or slot them straight into a running Astrid. Coming soon."
+>
+  <main class="reg wrap">
+    <header class="reg-head">
+      <p class="eyebrow">the registry · coming soon</p>
+      <h1>Build your agent<br />like a loadout.</h1>
+      <p class="prose dim reg-lede">
+        Pick the abilities. Every one is a sealed capsule with its permissions
+        declared up front. Bundle them into a single installable file — or
+        skip the file entirely and slot them straight into a running Astrid.
+      </p>
+      <p class="mono reg-honesty">
+        concept preview · nothing below is wired up yet — what you CAN do
+        today is <a href="/playground/">build a capsule in this tab</a>
+      </p>
+    </header>
+
+    <div class="reg-ghost" aria-hidden="true">
+      <div class="reg-grid">
+        <section class="card reg-pick">
+          <p class="mono reg-col-title">01 · pick its abilities</p>
+          <div class="reg-chips">
+            {
+              abilities.map((a) => (
+                <label class="reg-chip" data-on={String(a.on)}>
+                  <input type="checkbox" checked={a.on} disabled />
+                  <span class="reg-chip-name">{a.name}</span>
+                  <span class="mono reg-chip-note">{a.note}</span>
+                </label>
+              ))
+            }
+          </div>
+        </section>
+
+        <section class="card reg-bundle">
+          <p class="mono reg-col-title">02 · take it home</p>
+          <div class="reg-file mono">
+            <span class="reg-file-icon">▣</span>
+            <span class="reg-file-name">wanderer.distro</span>
+            <span class="reg-file-meta dim">4 capsules · signed · permissions declared</span>
+          </div>
+          <div class="reg-ctas">
+            <button class="btn btn-primary" disabled>download the file</button>
+            <button class="btn" disabled>slot it into your Astrid →</button>
+          </div>
+          <p class="mono reg-note dim">
+            one file, ready to install anywhere Astrid runs — or hand it
+            straight to the app and skip the download
+          </p>
+        </section>
+      </div>
+
+      <section class="reg-registry">
+        <p class="mono reg-col-title">the shelf · open, signed, owned by no model vendor</p>
+        <div class="reg-rows">
+          {
+            registryRows.map((r) => (
+              <div class="reg-row mono">
+                <span class="reg-row-name">{r.name}</span>
+                <span class="reg-row-by dim">signed · {r.by}</span>
+                <span class="reg-row-note dim">{r.note}</span>
+              </div>
+            ))
+          }
+        </div>
+      </section>
+    </div>
+  </main>
+</Base>
+
+<style>
+  .reg {
+    padding-block: var(--s-7);
+    max-width: 72rem;
+  }
+
+  .reg-head {
+    margin-bottom: var(--s-5);
+  }
+
+  .reg-head h1 {
+    font-size: var(--step-5);
+    margin-block: var(--s-2) var(--s-3);
+  }
+
+  .reg-lede {
+    max-width: 52ch;
+    margin-bottom: var(--s-3);
+  }
+
+  .reg-honesty {
+    display: inline-block;
+    font-size: var(--step--1);
+    color: var(--audit);
+    border: 1px dashed color-mix(in srgb, var(--audit) 45%, transparent);
+    border-radius: 8px;
+    padding: 0.5em 1em;
+  }
+
+  /* the ghost: visibly present, deliberately untouchable */
+  .reg-ghost {
+    opacity: 0.55;
+    pointer-events: none;
+    user-select: none;
+    filter: saturate(0.7);
+  }
+
+  .reg-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--s-3);
+    margin-bottom: var(--s-4);
+  }
+
+  @media (max-width: 900px) {
+    .reg-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .reg-pick,
+  .reg-bundle {
+    padding: var(--s-3);
+  }
+
+  .reg-col-title {
+    font-size: var(--step--1);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: var(--s-3);
+  }
+
+  .reg-chips {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s-1);
+  }
+
+  @media (max-width: 620px) {
+    .reg-chips {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .reg-chip {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: baseline;
+    gap: 0.6em;
+    padding: 0.6em 0.9em;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .reg-chip[data-on='true'] {
+    border-color: color-mix(in srgb, var(--capsule) 45%, transparent);
+  }
+
+  .reg-chip-name {
+    font-size: var(--step--1);
+  }
+
+  .reg-chip-note {
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    justify-self: end;
+    text-align: right;
+  }
+
+  .reg-file {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: var(--s-2);
+    align-items: baseline;
+    padding: var(--s-3);
+    border: 1px dashed var(--line-bright);
+    border-radius: 10px;
+    margin-bottom: var(--s-3);
+  }
+
+  .reg-file-icon {
+    color: var(--capsule);
+    font-size: var(--step-2);
+    grid-row: span 2;
+  }
+
+  .reg-file-name {
+    font-size: var(--step-1);
+  }
+
+  .reg-file-meta {
+    font-size: 0.7rem;
+  }
+
+  .reg-ctas {
+    display: flex;
+    gap: var(--s-2);
+    flex-wrap: wrap;
+    margin-bottom: var(--s-2);
+  }
+
+  .reg-note {
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+
+  .reg-registry {
+    border-top: 1px solid var(--line);
+    padding-top: var(--s-3);
+  }
+
+  .reg-rows {
+    display: grid;
+  }
+
+  .reg-row {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) minmax(0, 5fr);
+    gap: var(--s-2);
+    padding: var(--s-2);
+    border-top: 1px solid var(--line);
+    font-size: var(--step--1);
+  }
+
+  .reg-row:last-child {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .reg-row-name {
+    color: var(--capsule);
+  }
+
+  @media (max-width: 620px) {
+    .reg-row {
+      grid-template-columns: 1fr;
+      gap: 0.2em;
+    }
+  }
+</style>

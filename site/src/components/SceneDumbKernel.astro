@@ -20,15 +20,13 @@
       That thin line on the left is the whole engine. Everything else on this
       page clamps onto it.
     </p>
+    <canvas class="dk-ekg" id="dk-ekg" height="56" aria-hidden="true"></canvas>
     <p class="mono live-caption" id="dk-caption" hidden>
-      each pulse riding the rail is a real message moving inside this page,
-      <span id="dk-count">0</span> so far in this scene
+      this part's heartbeat · every beat is a real message it just routed ·
+      <span id="dk-count">0</span> so far
     </p>
     <p class="mono live-caption off-caption" id="dk-off" hidden>
-      silent for <span id="dk-since">0</span>s and counting. That was real:
-      the part is out of the engine and its permission token was revoked on
-      the spot. The engine keeps running — there is simply nobody left to
-      talk, so the pulses on the rail have stopped.
+      flatline. The part is out of the engine, its permission revoked.
     </p>
     <button class="dk-kill mono" id="dk-kill" hidden data-armed="true">
       ✕ disable the part that powers this section
@@ -70,6 +68,25 @@
     flex-direction: column;
     align-items: flex-start;
     gap: var(--s-4);
+  }
+
+  /* the heartbeat monitor: beats are real routed messages; disabling the
+     part flatlines it — no words needed */
+  .dk-ekg {
+    display: block;
+    width: 100%;
+    max-width: 30rem;
+    height: 56px;
+    margin-top: var(--s-3);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg-raised);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dk-ekg {
+      display: none;
+    }
   }
 
   .live-caption {
@@ -155,19 +172,65 @@
     }
   }
 
-  // the silence is the evidence: while the part is out, count the seconds
-  // since anything moved, live, so the death is impossible to miss
-  let deadAt = 0;
-  setInterval(() => {
-    const since = document.getElementById('dk-since');
+  // ---- the heartbeat monitor ----
+  // A scrolling EKG trace: every REAL routed message injects a beat; when
+  // the part is disabled no beats arrive and the line flatlines. The trace
+  // itself is the explanation — no prose required. One module-lifetime
+  // loop; it draws only while the canvas exists and is on screen.
+  let spike = 0;
+  const trace: number[] = [];
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function beat(): void {
+    spike = 1;
+  }
+
+  function drawEkg(): void {
+    const c = document.getElementById('dk-ekg') as HTMLCanvasElement | null;
+    if (!c) return;
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const w = Math.max(1, Math.round(c.clientWidth * dpr));
+    const h = Math.max(1, Math.round(c.clientHeight * dpr));
+    if (c.width !== w) c.width = w;
+    if (c.height !== h) c.height = h;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+
     const dead = capsuleState('site-pulse') === 'uninstalled';
-    if (!dead) {
-      deadAt = 0;
-      return;
+    const online = kernelStatus() === 'online';
+    // one sample per frame: baseline + a decaying spike on each real beat
+    spike *= 0.82;
+    const base = h * 0.6;
+    const jitter = dead || !online ? 0 : (Math.random() - 0.5) * h * 0.03;
+    trace.push(base - spike * h * 0.4 + jitter);
+    const step = 2 * dpr;
+    const maxSamples = Math.ceil(w / step) + 1;
+    while (trace.length > maxSamples) trace.shift();
+
+    const css = getComputedStyle(c);
+    ctx.clearRect(0, 0, w, h);
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.strokeStyle = dead
+      ? css.getPropertyValue('--deny').trim() || '#f87171'
+      : css.getPropertyValue('--bus').trim() || '#5eead4';
+    ctx.globalAlpha = online ? 0.9 : 0.35;
+    ctx.beginPath();
+    for (let i = 0; i < trace.length; i++) {
+      const x = w - (trace.length - 1 - i) * step;
+      if (i === 0) ctx.moveTo(x, trace[i]);
+      else ctx.lineTo(x, trace[i]);
     }
-    if (!deadAt) deadAt = Date.now();
-    if (since) since.textContent = String(Math.round((Date.now() - deadAt) / 1000));
-  }, 1000);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  if (!reduced) {
+    const ekgLoop = () => {
+      drawEkg();
+      requestAnimationFrame(ekgLoop);
+    };
+    requestAnimationFrame(ekgLoop);
+  }
 
   // The page is the clock (a sandboxed guest has no timer authority): real
   // tick publishes while the scene is visible. The ROUTING lives in the
@@ -219,6 +282,7 @@
       subscribed = true;
       bridge.subscribe('site.v1.demo.*', () => {
         seen += 1;
+        beat();
         const count = document.getElementById('dk-count');
         if (count) count.textContent = String(seen);
       });
