@@ -288,16 +288,43 @@ async function generate(
       body: JSON.stringify({
         model: endpoint.model || 'default',
         messages,
-        temperature: 0.3,
+        temperature: 0.55,
+        frequency_penalty: 0.4,
+        presence_penalty: 0.3,
         max_tokens: maxTokens,
-        stream: false,
+        stream: true,
       }),
     });
-    if (!res.ok) throw new Error(`endpoint answered ${res.status}`);
-    const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const text = stripThink(json.choices?.[0]?.message?.content ?? '');
-    onDelta(text, 1);
-    return text;
+    if (!res.ok || !res.body) throw new Error(`endpoint answered ${res.status}`);
+    // SSE: `data: {...}` lines, terminated by `data: [DONE]`. Events can
+    // split across network chunks, so buffer to the last newline.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    let raw = '';
+    let n = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() ?? '';
+      for (const line of lines) {
+        const data = line.startsWith('data:') ? line.slice(5).trim() : '';
+        if (!data || data === '[DONE]') continue;
+        try {
+          const json = JSON.parse(data) as { choices?: { delta?: { content?: string } }[] };
+          const t = json.choices?.[0]?.delta?.content ?? '';
+          if (!t) continue;
+          raw += t;
+          n += 1;
+          onDelta(stripThink(raw), n);
+        } catch {
+          /* keep-alive comments and partial junk are legal SSE; skip */
+        }
+      }
+    }
+    return stripThink(raw);
   }
   if (!engine) throw new Error('no model: download one or connect an endpoint');
   let raw = '';
@@ -337,7 +364,7 @@ export async function completeOpenAi(
   publishStatus(bridge, 'thinking', 'fleet turn');
   let last = 0;
   const full = await generate(messages, maxTokens, (t, n) => {
-    if (n - last >= 8) {
+    if (n - last >= 4) {
       last = n;
       void bridge.publish('site.agent.v1.token', JSON.stringify({ n }));
       // Running text for the pill: the fleet's final answer arrives only
