@@ -29,7 +29,7 @@ export function initScenes(): void {
   // eye gets a small kick at the catch.
   for (const scene of document.querySelectorAll<HTMLElement>('[data-scene]')) {
     const targets = scene.querySelectorAll<HTMLElement>(
-      '.thesis-line, .thesis-note, .scene-copy, .endpoints, .capsule-rack, .prose, .layers-rig, .grow-quote, .books-grid, .cap-rig, .aud-rows, .keys-chain, .receipt',
+      '.thesis-line, .thesis-note, .scene-copy, .endpoints, .capsule-rack, .prose, .layers-rig, .grow-quote, .books-grid, .cap-rig, .aud-rows, .keys-chain, .receipt, .homes, .bring-rows',
     );
     if (!targets.length) continue;
     gsap.from(targets, {

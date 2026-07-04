@@ -1,0 +1,291 @@
+---
+/** Section 5 — a home of its own. Two residents (principals) live on this
+ *  page's OS, each with a home the other cannot enter. The notes are real
+ *  writes through the capability-checked guest surface; the trespass button
+ *  is a REAL read attempt that really gets denied and really lands on the
+ *  record. The browser build walls key-value homes; a native install runs
+ *  the same wall around files, secrets, and memory. */
+const residents = [
+  { id: 'aria', label: 'aria' },
+  { id: 'kestrel', label: 'kestrel' },
+];
+---
+
+<section class="home-scene wrap" id="homes" data-scene>
+  <div class="scene-copy prose">
+    <p class="eyebrow">05 · the homes</p>
+    <h2>A home of its own.<br />A door of its own.</h2>
+    <p>
+      Every agent on Astrid is a resident with its own home: its own storage,
+      its own memory, its own keys. Two residents live on this page. Leave
+      each a note, then try to make one read the other's — the OS itself
+      refuses, and the refusal goes on the record like everything else.
+    </p>
+    <p class="mono live-caption dim">
+      in this tab the wall runs around each resident's key-value home; on a
+      native install the same wall runs around files, secrets, and memory
+    </p>
+  </div>
+
+  <div class="homes" id="homes-rig">
+    {
+      residents.map((r) => (
+        <div class="card home-card" data-dock={r.id}>
+          <p class="mono home-name">{r.label}’s home</p>
+          <p class="mono home-note dim" id={`home-note-${r.id}`}>no note yet</p>
+          <form class="home-form" data-resident={r.id}>
+            <input
+              class="mono home-input"
+              type="text"
+              maxlength="60"
+              placeholder={`leave ${r.label} a note…`}
+              autocomplete="off"
+              disabled
+            />
+            <button class="mono home-save" type="submit" disabled>put</button>
+          </form>
+        </div>
+      ))
+    }
+    <button class="mono home-trespass" id="home-trespass" disabled>
+      make kestrel read aria’s note →
+    </button>
+    <p class="mono home-verdict" id="home-verdict" aria-live="polite"></p>
+  </div>
+</section>
+
+<style>
+  .home-scene {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: var(--s-5);
+    align-items: center;
+    padding-block: var(--s-8);
+  }
+
+  @media (max-width: 900px) {
+    .home-scene {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .scene-copy h2 {
+    font-size: var(--step-4);
+    margin-block: var(--s-2) var(--s-3);
+  }
+
+  .scene-copy p + p {
+    margin-top: var(--s-2);
+  }
+
+  .live-caption {
+    font-size: var(--step--1);
+  }
+
+  .homes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s-2);
+  }
+
+  @media (max-width: 620px) {
+    .homes {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .home-card {
+    padding: var(--s-3);
+    display: grid;
+    gap: var(--s-2);
+    align-content: start;
+  }
+
+  .home-name {
+    font-size: var(--step--1);
+    letter-spacing: 0.08em;
+    color: var(--capsule);
+  }
+
+  .home-note {
+    font-size: var(--step--1);
+    min-height: 1.6em;
+    overflow-wrap: anywhere;
+  }
+
+  .home-form {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .home-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: var(--step--1);
+    padding: 0.5em 0.8em;
+  }
+
+  .home-input:focus-visible {
+    outline: none;
+    border-color: var(--bus);
+  }
+
+  .home-input:disabled,
+  .home-save:disabled,
+  .home-trespass:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .home-save {
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: var(--step--1);
+    padding: 0.5em 1em;
+    cursor: pointer;
+  }
+
+  .home-save:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--bus);
+  }
+
+  /* the trespass: one button spanning both homes, styled like the crime */
+  .home-trespass {
+    grid-column: 1 / -1;
+    justify-self: start;
+    background: none;
+    border: 1px solid color-mix(in srgb, var(--deny) 45%, transparent);
+    border-radius: 999px;
+    color: var(--deny);
+    font-size: var(--step--1);
+    padding: 0.55em 1.2em;
+    cursor: pointer;
+    transition: border-color var(--t-fast) var(--ease-out);
+  }
+
+  .home-trespass:hover:not(:disabled) {
+    border-color: var(--deny);
+  }
+
+  .home-verdict {
+    grid-column: 1 / -1;
+    font-size: var(--step--1);
+    min-height: 1.6em;
+  }
+
+  .home-verdict[data-kind='deny'] {
+    color: var(--deny);
+  }
+
+  .home-verdict[data-kind='ok'] {
+    color: var(--grant);
+  }
+</style>
+
+<script>
+  import { onKernel, kernel, type AstridBridge } from '../scripts/kernel';
+  import { bump } from '../scripts/site-tally';
+
+  // Each resident is granted read+write on ITS OWN home namespace and
+  // nothing else — the trespass fails because no capability covers it,
+  // not because this script checks anything. Module state survives
+  // navigations; wire() re-binds the fresh elements.
+  const RESIDENTS = ['aria', 'kestrel'] as const;
+  const home = (r: string) => `home-${r}`;
+
+  let armed = false;
+  let bridge: AstridBridge | null = null;
+
+  function ready(): boolean {
+    return armed && !!bridge?.guestKvGet && !!bridge?.guestKvSet;
+  }
+
+  onKernel((status, b) => {
+    if (status !== 'online' || !b || armed) return;
+    bridge = b;
+    if (!b.guestKvGet || !b.guestKvSet) return; // older engine: stay inert
+    void (async () => {
+      for (const r of RESIDENTS) {
+        await b.grant(r, `kv:${home(r)}`, 'read');
+        await b.grant(r, `kv:${home(r)}`, 'write');
+      }
+      armed = true;
+      wire();
+    })();
+  });
+
+  async function refreshNotes(): Promise<void> {
+    if (!ready() || !bridge) return;
+    for (const r of RESIDENTS) {
+      const el = document.getElementById(`home-note-${r}`);
+      if (!el) continue;
+      try {
+        const v = await bridge.guestKvGet!(r, home(r), 'note');
+        el.textContent = v ? `“${v}”` : 'no note yet';
+      } catch {
+        /* own-home reads are granted; leave the last rendering */
+      }
+    }
+  }
+
+  function verdict(kind: string, text: string): void {
+    const el = document.getElementById('home-verdict');
+    if (!el) return;
+    el.dataset.kind = kind;
+    el.textContent = text;
+  }
+
+  function wire(): void {
+    const on = ready();
+    const rig = document.getElementById('homes-rig');
+    if (!rig) return;
+    rig.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button').forEach(
+      (el) => (el.disabled = !on),
+    );
+    if (!on) return;
+
+    rig.querySelectorAll<HTMLFormElement>('.home-form').forEach((form) => {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const r = form.dataset.resident!;
+        const input = form.querySelector<HTMLInputElement>('input')!;
+        const text = input.value.trim();
+        if (!text || !bridge) return;
+        void bridge.guestKvSet!(r, home(r), 'note', text).then(() => {
+          input.value = '';
+          verdict('ok', `written into ${r}’s home — a real write, behind a real permission check`);
+          return refreshNotes();
+        });
+      });
+    });
+
+    document.getElementById('home-trespass')?.addEventListener('click', () => {
+      if (!bridge) return;
+      void (async () => {
+        try {
+          // kestrel attempts aria's home: a REAL read through the same
+          // surface the legitimate reads use. No capability covers it.
+          await bridge.guestKvGet!('kestrel', home('aria'), 'note');
+          verdict('ok', 'read allowed?! — report this, it should be impossible');
+        } catch {
+          bump('denied');
+          verdict(
+            'deny',
+            'DENIED · kestrel holds no key to aria’s home. The OS refused, and the refusal is on the record below.',
+          );
+        }
+      })();
+    });
+
+    void refreshNotes();
+  }
+  document.addEventListener('astro:page-load', wire);
+</script>

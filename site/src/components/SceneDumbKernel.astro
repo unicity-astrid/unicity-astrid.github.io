@@ -25,12 +25,13 @@
       <span id="dk-count">0</span> so far in this scene
     </p>
     <p class="mono live-caption off-caption" id="dk-off" hidden>
-      dead. That was a real uninstall — the part is out of the engine and its
-      permission token was revoked on the spot. The engine itself keeps
-      running; there is simply nobody left to talk.
+      silent for <span id="dk-since">0</span>s and counting. That was real:
+      the part is out of the engine and its permission token was revoked on
+      the spot. The engine keeps running — there is simply nobody left to
+      talk, so the pulses on the rail have stopped.
     </p>
     <button class="dk-kill mono" id="dk-kill" hidden data-armed="true">
-      ✕ uninstall the part that powers this section
+      ✕ disable the part that powers this section
     </button>
   </div>
   <div class="endpoints" aria-hidden="true">
@@ -145,14 +146,28 @@
     if (count) count.textContent = String(seen);
     if (section) section.dataset.dead = String(dead);
     if (kill) {
-      // the dare only appears when the uninstall would be REAL
+      // the dare only appears when the disable would be REAL
       kill.hidden = state === 'unavailable' || state === 'error';
       kill.dataset.armed = String(!dead);
       kill.textContent = dead
-        ? '↺ reinstall it — the section comes back to life'
-        : '✕ uninstall the part that powers this section';
+        ? '↺ re-enable it — the section comes back to life'
+        : '✕ disable the part that powers this section';
     }
   }
+
+  // the silence is the evidence: while the part is out, count the seconds
+  // since anything moved, live, so the death is impossible to miss
+  let deadAt = 0;
+  setInterval(() => {
+    const since = document.getElementById('dk-since');
+    const dead = capsuleState('site-pulse') === 'uninstalled';
+    if (!dead) {
+      deadAt = 0;
+      return;
+    }
+    if (!deadAt) deadAt = Date.now();
+    if (since) since.textContent = String(Math.round((Date.now() - deadAt) / 1000));
+  }, 1000);
 
   // The page is the clock (a sandboxed guest has no timer authority): real
   // tick publishes while the scene is visible. The ROUTING lives in the
@@ -175,13 +190,16 @@
           if (!bridge) return;
           // Builds without the capsule assets fall back to routing directly
           // (still a real publish); with site-pulse present, the capsule
-          // owns the routing.
-          if (capsuleState('site-pulse') === 'unavailable') {
+          // owns the routing. While the part is DISABLED the page goes
+          // quiet on purpose: publishing ticks nobody routes would keep the
+          // rail pulsing and hide the consequence.
+          const state = capsuleState('site-pulse');
+          if (state === 'unavailable') {
             void bridge.publish(
               'site.v1.demo.route',
               JSON.stringify({ scene: 'dumb-kernel', via: 'page' }),
             );
-          } else {
+          } else if (state === 'installed') {
             void bridge.publish('site.v1.clock.tick', JSON.stringify({ n: ++n }));
           }
         }, 2600);

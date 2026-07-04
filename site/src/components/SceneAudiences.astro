@@ -1,14 +1,9 @@
 ---
 /** Section — who it's for. Four audiences, each with a claim the book can
  *  back, linking straight into the relevant chapters. */
+// the "bring your existing agent" audience has its own section (SceneBring);
+// these are the remaining seats
 const audiences = [
-  {
-    kicker: 'you already use Claude, Codex, Hermes…',
-    title: 'Give the AI you use a home.',
-    body: 'Your agent plugs into Astrid and keeps being itself, but now it has a permanent memory, a shared toolbox, house rules it cannot break, and a record of everything it does. Claude runs on Astrid today; more are on the way.',
-    href: '/book/getting-started/see-it-work/',
-    link: 'see it work',
-  },
   {
     kicker: 'you juggle several AIs',
     title: 'They finally work together.',
@@ -35,7 +30,7 @@ const audiences = [
 
 <section class="aud hairline-top" id="audiences" data-scene>
   <div class="wrap">
-    <p class="eyebrow">06 · who rides it</p>
+    <p class="eyebrow">07 · who rides it</p>
     <h2 class="aud-title">Different seats,<br />same machine.</h2>
     <div class="aud-rows">
       {

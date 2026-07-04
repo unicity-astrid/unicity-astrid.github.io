@@ -1,0 +1,166 @@
+---
+/** Section 10 — bring your own agent. The point every monolith-agent user
+ *  needs to hear: Astrid goes UNDER the agent you already run. Platform
+ *  rows like a download table — Claude is real today (the extension
+ *  exists); the rest are stated as coming, never implied as shipped.
+ *  The Claude spark here is a stylized placeholder — swap in the official
+ *  brand asset before the site goes public. */
+const platforms = [
+  {
+    id: 'claude',
+    name: 'Claude',
+    note: 'extension available today',
+    href: 'https://github.com/unicity-astrid',
+    cta: 'get it →',
+    live: true,
+  },
+  { id: 'codex', name: 'Codex', note: 'coming', live: false },
+  { id: 'hermes', name: 'Hermes', note: 'coming', live: false },
+];
+---
+
+<section class="bring hairline-top" id="bring" data-scene>
+  <div class="wrap">
+    <p class="eyebrow">10 · bring yours</p>
+    <h2 class="bring-title">Don't replace your agent.<br />Upgrade it.</h2>
+    <div class="bring-grid">
+      <div class="prose">
+        <p>
+          Every agent today is a monolith: brain, tools, and memory welded
+          into one app, each one rebuilding the same house from scratch and
+          forgetting everything the moment it closes. Astrid slots in
+          <em>underneath</em>. Your agent keeps being itself — same brain,
+          same interface you already like — and gains the OS: a shared
+          toolbox, permanent memory, house rules it cannot break, receipts
+          for everything it does.
+        </p>
+        <p class="dim">
+          Adding it is painless. Removing it is too. You're not switching
+          agents — you're giving yours a home.
+        </p>
+      </div>
+
+      <div class="bring-rows" role="list">
+        {
+          platforms.map((p) => (
+            <div class="bring-row" role="listitem" data-live={String(p.live)}>
+              <span class="bring-logo" aria-hidden="true">
+                {p.id === 'claude' ? (
+                  <svg viewBox="-12 -12 24 24" width="22" height="22">
+                    {Array.from({ length: 11 }, (_, i) => (
+                      <rect
+                        x="-1.05"
+                        y="-10.6"
+                        width="2.1"
+                        height={5.4 + ((i * 7) % 4) * 0.8}
+                        rx="1.05"
+                        fill="currentColor"
+                        transform={`rotate(${i * (360 / 11)})`}
+                      />
+                    ))}
+                  </svg>
+                ) : (
+                  <span class="bring-glyph mono">{p.name[0]}</span>
+                )}
+              </span>
+              <span class="bring-name">{p.name}</span>
+              <span class="mono bring-note dim">{p.note}</span>
+              {p.live && p.href ? (
+                <a class="mono bring-cta" href={p.href}>{p.cta}</a>
+              ) : (
+                <span class="mono bring-cta bring-soon">soon</span>
+              )}
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .bring {
+    padding-block: var(--s-8);
+  }
+
+  .bring-title {
+    font-size: var(--step-4);
+    margin-block: var(--s-2) var(--s-5);
+  }
+
+  .bring-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 6fr);
+    gap: var(--s-6);
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .bring-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .bring .prose p + p {
+    margin-top: var(--s-2);
+  }
+
+  /* the download table: one row per agent platform */
+  .bring-rows {
+    display: grid;
+  }
+
+  .bring-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 3fr) minmax(0, 5fr) auto;
+    align-items: center;
+    gap: var(--s-3);
+    padding: var(--s-3) var(--s-2);
+    border-top: 1px solid var(--line);
+  }
+
+  .bring-row:last-child {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .bring-row[data-live='false'] {
+    opacity: 0.55;
+  }
+
+  .bring-logo {
+    display: inline-flex;
+    width: 24px;
+    justify-content: center;
+    color: var(--text);
+  }
+
+  .bring-glyph {
+    width: 22px;
+    height: 22px;
+    display: inline-grid;
+    place-items: center;
+    border: 1px solid var(--line-bright);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+
+  .bring-name {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--step-1);
+  }
+
+  .bring-note {
+    font-size: var(--step--1);
+  }
+
+  .bring-cta {
+    font-size: var(--step--1);
+    justify-self: end;
+  }
+
+  .bring-soon {
+    color: var(--text-faint);
+  }
+</style>
