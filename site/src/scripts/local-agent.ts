@@ -109,6 +109,31 @@ function stripThink(s: string): string {
   return s.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/<think>[\s\S]*$/, '').trimStart();
 }
 
+// End-of-turn version: if the model burned its whole token budget inside a
+// think block, the strict strip leaves NOTHING — an empty answer is worse
+// than a rough one, so salvage the reasoning text as the reply.
+function visibleText(raw: string): string {
+  const strict = stripThink(raw);
+  if (strict) return strict;
+  return raw.replace(/<\/?think>/g, '').trimStart();
+}
+
+// Qwen3's thinking switch binds to the LAST user message, not the system
+// prompt. Applied only to the in-tab engine (a brought endpoint may be any
+// model family; we don't decorate someone else's prompts).
+function withNoThink(
+  messages: { role: string; content: string }[],
+): { role: string; content: string }[] {
+  const out = messages.map((m) => ({ ...m }));
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (out[i].role === 'user') {
+      out[i].content += ' /no_think';
+      break;
+    }
+  }
+  return out;
+}
+
 /** Download and boot the model. Progress goes to the bus and the callback. */
 export async function enableAgent(
   bridge: AstridBridge,
@@ -211,7 +236,7 @@ async function generate(
   let raw = '';
   let n = 0;
   const stream = await engine.chat.completions.create({
-    messages,
+    messages: withNoThink(messages),
     stream: true,
     temperature: 0.3,
     max_tokens: maxTokens,
@@ -223,7 +248,7 @@ async function generate(
     n += 1;
     onDelta(stripThink(raw), n);
   }
-  return stripThink(raw);
+  return visibleText(raw);
 }
 
 /**
@@ -278,7 +303,7 @@ export async function askAgent(
   ];
 
   let tokens = 0;
-  const full = await generate(messages, 220, (text, n) => {
+  const full = await generate(messages, 340, (text, n) => {
     tokens = n;
     if (n % 8 === 0) void bridge.publish('site.agent.v1.token', JSON.stringify({ n }));
     onToken(text);

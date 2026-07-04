@@ -628,10 +628,16 @@
         transcript.push(reply);
         renderTranscript();
         try {
-          await askAgent(bridge, q, chapters, history, (full) => {
-            reply.text = full;
-            renderTranscript();
+          // The return value matters: mid-stream the strict think-strip can
+          // leave the bubble empty, and the final text salvages that case.
+          const answer = await askAgent(bridge, q, chapters, history, (full) => {
+            if (full) {
+              reply.text = full;
+              renderTranscript();
+            }
           });
+          reply.text = answer || '(the model returned nothing — ask again?)';
+          renderTranscript();
         } catch (err) {
           reply.text = `agent failed: ${err instanceof Error ? err.message : err}`;
           renderTranscript();
