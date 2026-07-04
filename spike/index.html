@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Astrid capsule in the browser — spike</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; margin: 2rem; max-width: 960px; }
+  h1 { font-size: 1.25rem; }
+  button { font: inherit; padding: .5rem 1rem; cursor: pointer; }
+  .ok { color: #2e7d32; font-weight: 700; }
+  .fail { color: #c62828; font-weight: 700; }
+  pre { background: rgba(127,127,127,.12); padding: 1rem; overflow-x: auto; border-radius: 6px; }
+  .journal { white-space: pre; }
+</style>
+</head>
+<body>
+<h1>Astrid capsule in the browser — feasibility spike</h1>
+<p>Instantiates the real, unmodified <code>prompt-builder</code> capsule (jco-transpiled WASM component)
+in the browser with stubbed <code>astrid:*</code> host imports, then drives
+<code>astridHookTrigger("handle_assemble", …)</code>.</p>
+<button id="run">Run the capsule</button>
+<p id="verdict"></p>
+<h3>Host-call journal</h3>
+<pre class="journal" id="journal">(click Run)</pre>
+<h3>Guest output — published <code>prompt_builder.v1.response.assemble</code></h3>
+<pre id="output">(click Run)</pre>
+
+<script type="module">
+import { instantiate } from "./transpiled/prompt-builder.component.js";
+import { createHost } from "./host-stubs.mjs";
+
+const $ = (id) => document.getElementById(id);
+
+async function getCoreModule(path) {
+  const res = await fetch(new URL(`./transpiled/${path}`, import.meta.url));
+  return await WebAssembly.compile(await res.arrayBuffer());
+}
+
+$("run").addEventListener("click", async () => {
+  $("verdict").textContent = "running…";
+  try {
+    const { imports, journal } = createHost({ log: true });
+    const root = await instantiate(getCoreModule, imports);
+
+    const request = {
+      system_prompt: "You are Astrid, a secure agent runtime assistant.",
+      request_id: "spike-req-0001",
+      model: "claude-opus-4",
+      provider: "anthropic",
+      messages: [{ role: "user", content: "What can you do?" }],
+    };
+    const payload = new TextEncoder().encode(JSON.stringify(request));
+    const result = root.astridHookTrigger("handle_assemble", payload);
+
+    $("journal").textContent = journal
+      .map((e) => `#${e.seq} ${e.iface}#${e.fn}(${e.args[0] ?? ""})`)
+      .join("\n");
+
+    const assembled = journal.find(
+      (e) => e.fn === "publish" && e.args[0] === "prompt_builder.v1.response.assemble"
+    );
+    $("output").textContent = assembled
+      ? JSON.stringify(JSON.parse(assembled.args[1]), null, 2)
+      : "(none — FAIL)";
+
+    const pass =
+      result && result.action === "continue" &&
+      assembled && JSON.parse(assembled.args[1]).request_id === "spike-req-0001";
+    $("verdict").innerHTML = pass
+      ? `<span class="ok">PASS</span> — CapsuleResult: ${JSON.stringify(result)}; ${journal.length} host calls`
+      : `<span class="fail">FAIL</span>`;
+  } catch (e) {
+    $("verdict").innerHTML = `<span class="fail">ERROR</span> ${e}`;
+    console.error(e);
+  }
+});
+</script>
+</body>
+</html>
