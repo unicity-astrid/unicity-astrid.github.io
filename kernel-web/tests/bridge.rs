@@ -97,5 +97,38 @@ async fn bridge_drives_the_real_kernel() -> Result<(), JsValue> {
         "unsupported permission must error"
     );
 
+    // --- audit chain: runtime regression for the astrid-audit wasm fix ---
+    // The grant + three checks above must have landed real signed entries
+    // (1 CapabilityCreated + 1 ApprovalGranted + 2 ApprovalDenied). On the old
+    // sync-over-async storage this whole surface panicked on wasm.
+    let audit_len = web.audit_len().await?;
+    assert!(
+        audit_len >= 4,
+        "expected at least 4 audit entries, got {audit_len}"
+    );
+
+    let tail_json = web.audit_tail(8).await?;
+    let tail: serde_json::Value =
+        serde_json::from_str(&tail_json).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let entries = tail.as_array().expect("audit tail must be a JSON array");
+    assert!(entries.len() >= 4, "tail too short: {tail_json}");
+    for entry in entries {
+        let hash = entry["hash"].as_str().expect("entry.hash");
+        assert_eq!(hash.len(), 64, "BLAKE3 hex hash expected: {hash}");
+        assert!(entry["action"].as_str().is_some(), "entry.action missing");
+    }
+    let actions: Vec<&str> = entries
+        .iter()
+        .filter_map(|e| e["action"].as_str())
+        .collect();
+    assert!(
+        actions.contains(&"capability_created"),
+        "grant must land capability_created: {actions:?}"
+    );
+    assert!(
+        actions.contains(&"approval_denied"),
+        "denied checks must land approval_denied: {actions:?}"
+    );
+
     Ok(())
 }

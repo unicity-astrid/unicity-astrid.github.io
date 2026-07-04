@@ -274,6 +274,32 @@ impl AstridWeb {
             .await
             .map_err(|e| JsError::new(&format!("capability add failed: {e}")))?;
 
+        // Land the grant on the real signed audit chain. Failure degrades to
+        // continue (the grant itself already succeeded) — same fail-secure
+        // posture as the kernel's own audit paths — but is surfaced to JS via
+        // console warn through tracing rather than swallowed.
+        if let Err(e) = self
+            .kernel
+            .audit_log
+            .append_with_principal(
+                self.kernel.session_id.clone(),
+                principal,
+                astrid_audit::AuditAction::CapabilityCreated {
+                    token_id: token_id.clone(),
+                    resource,
+                    permissions: vec![permission],
+                    scope: astrid_audit::ApprovalScope::Session,
+                },
+                astrid_audit::AuthorizationProof::NotRequired {
+                    reason: "interactive site demo grant".to_string(),
+                },
+                astrid_audit::AuditOutcome::success(),
+            )
+            .await
+        {
+            web_console_warn(&format!("astrid: audit append failed for grant: {e}"));
+        }
+
         Ok(token_id.to_string())
     }
 
@@ -295,26 +321,111 @@ impl AstridWeb {
         let principal = PrincipalId::new(&principal)
             .map_err(|e| JsError::new(&format!("invalid principal: {e}")))?;
         let permission = parse_permission(&perm)?;
-        Ok(self
+        let allowed = self
             .kernel
             .capabilities
             .find_capability(&principal, &resource, permission)
             .await
-            .is_some())
+            .is_some();
+
+        // Every check decision lands on the real signed chain (grant AND
+        // deny), so the page's ledger is the actual audit record.
+        let action = format!("{perm} {resource}");
+        let audit_action = if allowed {
+            astrid_audit::AuditAction::ApprovalGranted {
+                action,
+                resource: Some(resource),
+                scope: astrid_audit::ApprovalScope::Session,
+            }
+        } else {
+            astrid_audit::AuditAction::ApprovalDenied {
+                action,
+                reason: Some("no capability covers this resource/permission".to_string()),
+            }
+        };
+        let outcome = if allowed {
+            astrid_audit::AuditOutcome::success()
+        } else {
+            astrid_audit::AuditOutcome::failure("denied: no covering capability")
+        };
+        if let Err(e) = self
+            .kernel
+            .audit_log
+            .append_with_principal(
+                self.kernel.session_id.clone(),
+                principal,
+                audit_action,
+                astrid_audit::AuthorizationProof::NotRequired {
+                    reason: "interactive site demo check".to_string(),
+                },
+                outcome,
+            )
+            .await
+        {
+            web_console_warn(&format!("astrid: audit append failed for check: {e}"));
+        }
+
+        Ok(allowed)
     }
 
-    // NOTE: `audit_len` / `audit_tail` are intentionally NOT implemented.
-    //
-    // The real audit surface (`AuditLog::append` / `count` /
-    // `get_session_entries`) is backed by `SurrealKvAuditStorage`, whose sync
-    // trait bridges to the async `KvStore` through a `block_on` helper. On
-    // `wasm32-unknown-unknown` no ambient tokio runtime exists, so that helper
-    // builds a `tokio` current-thread runtime with `enable_all()`, whose time
-    // driver calls `std::time::Instant::now()` — unsupported on this target, so
-    // it panics at runtime. `AuditLog::in_memory` constructs, but any read or
-    // write panics. Rather than fake a chain, this method is omitted; a real
-    // audit surface needs a wasm-safe `block_on` in `astrid-audit` (out of
-    // scope for this crate). See the crate's final report.
+    /// Number of entries on the real audit chain.
+    ///
+    /// Requires the genuinely-async audit storage (core branch for issue
+    /// #1154); on the old sync-over-async surface this call panicked on wasm.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `JsError` if the audit storage fails.
+    #[wasm_bindgen(js_name = auditLen)]
+    pub async fn audit_len(&self) -> Result<u64, JsError> {
+        let n = self
+            .kernel
+            .audit_log
+            .count()
+            .await
+            .map_err(|e| JsError::new(&format!("audit count failed: {e}")))?;
+        Ok(n as u64)
+    }
+
+    /// Last `n` entries of this session's real audit chain, oldest first, as a
+    /// JSON array of `{hash, action, at}` — `hash` is the entry's BLAKE3
+    /// content hash (hex), `action` the serde tag of the audited action.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `JsError` if the audit storage fails.
+    #[wasm_bindgen(js_name = auditTail)]
+    pub async fn audit_tail(&self, n: u32) -> Result<String, JsError> {
+        let entries = self
+            .kernel
+            .audit_log
+            .get_session_entries(&self.kernel.session_id)
+            .await
+            .map_err(|e| JsError::new(&format!("audit read failed: {e}")))?;
+        let tail: Vec<serde_json::Value> = entries
+            .iter()
+            .rev()
+            .take(n as usize)
+            .rev()
+            .map(|entry| {
+                let action = serde_json::to_value(&entry.action)
+                    .ok()
+                    .and_then(|v| {
+                        v.get("type")
+                            .and_then(serde_json::Value::as_str)
+                            .map(str::to_string)
+                    })
+                    .unwrap_or_else(|| "entry".to_string());
+                serde_json::json!({
+                    "hash": entry.content_hash().to_hex(),
+                    "action": action,
+                    "at": entry.timestamp.to_string(),
+                })
+            })
+            .collect();
+        serde_json::to_string(&tail)
+            .map_err(|e| JsError::new(&format!("audit tail serialization failed: {e}")))
+    }
 
     /// Number of events the kernel has routed since boot, from the crate-owned
     /// wildcard pump.
@@ -323,6 +434,18 @@ impl AstridWeb {
     pub fn events_routed(&self) -> u64 {
         self.events_routed.load(Ordering::Relaxed)
     }
+}
+
+/// Surface a non-fatal bridge warning on the browser console (fail-secure
+/// audit posture: continue + alert, never panic the caller path).
+fn web_console_warn(msg: &str) {
+    js_sys::global()
+        .dyn_into::<js_sys::Object>()
+        .ok()
+        .and_then(|_| js_sys::Reflect::get(&js_sys::global(), &"console".into()).ok())
+        .and_then(|c| js_sys::Reflect::get(&c, &"warn".into()).ok())
+        .and_then(|w| w.dyn_into::<js_sys::Function>().ok())
+        .map(|f| f.call1(&JsValue::NULL, &JsValue::from_str(msg)));
 }
 
 /// Map a permission string onto a real [`Permission`]. Only the three the
