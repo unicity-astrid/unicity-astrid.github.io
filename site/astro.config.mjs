@@ -13,16 +13,9 @@ function rehypeMdBookLinks() {
   /** @param {any} tree @param {any} file */
   return (tree, file) => {
     const path = String(file?.path ?? '').replaceAll('\\', '/');
-    let root = null;
-    let srcMarker = null;
-    if (path.includes('/astrid-book/src/')) {
-      root = '/book';
-      srcMarker = '/astrid-book/src/';
-    } else if (path.includes('/astrid-handbook/src/')) {
-      root = '/handbook';
-      srcMarker = '/astrid-handbook/src/';
-    }
-    if (!root || !srcMarker) return;
+    const srcMarker = '/astrid-book/src/';
+    const root = '/book';
+    if (!path.includes(srcMarker)) return;
     const relDir = dirname(path.slice(path.indexOf(srcMarker) + srcMarker.length));
 
     /** @param {any} node */

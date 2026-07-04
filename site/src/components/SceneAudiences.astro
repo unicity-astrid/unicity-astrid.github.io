@@ -1,0 +1,106 @@
+---
+/** Section — who it's for. Four audiences, each with a claim the book can
+ *  back, linking straight into the relevant chapters. */
+const audiences = [
+  {
+    kicker: 'running Claude, Codex, Hermes, OpenClaw…',
+    title: 'Your agent, on an OS.',
+    body: 'Claude Code runs on Astrid today as an uplink: same agent, plus shared memory, a governed tool surface, signed capabilities, and an audit chain under every action. More agent runtimes are landing as uplinks next.',
+    href: '/book/getting-started/see-it-work/',
+    link: 'see it work',
+  },
+  {
+    kicker: 'running several agents',
+    title: 'One bus. Every agent.',
+    body: 'Agents from different vendors are silos: separate tools, separate memory, no common policy. On Astrid they publish on one IPC bus, share the same tool and memory capsules, and inherit one capability model. They cooperate; permissions only narrow.',
+    href: '/book/bus/tools-as-ipc/',
+    link: 'tools as IPC',
+  },
+  {
+    kicker: 'hosting agents for others',
+    title: 'Thousands of tenants. One daemon.',
+    body: 'Principals are isolated by construction: per-principal storage, homes, quotas, and capability scopes. Capsules are immutable and shared, so a thousand tenants deduplicate to one copy of every capsule. The density benchmark is on the roadmap; the isolation model is shipped.',
+    href: '/book/identity/principal-and-isolation/',
+    link: 'principals and isolation',
+  },
+  {
+    kicker: 'building tools',
+    title: 'Build once. Every agent gains it.',
+    body: 'A capsule is a WebAssembly process with a manifest: declare imports, exports, and the capabilities it needs, and every agent on every Astrid can install it. No forks, no per-agent plugins, one artifact.',
+    href: '/book/capsule-model/designing-capsules/',
+    link: 'designing capsules',
+  },
+];
+---
+
+<section class="aud hairline-top" id="audiences" data-scene>
+  <div class="wrap">
+    <p class="eyebrow">05 · who rides it</p>
+    <h2 class="aud-title">Different seats,<br />same machine.</h2>
+    <div class="aud-grid">
+      {
+        audiences.map((a) => (
+          <article class="card aud-card">
+            <p class="mono aud-kicker">{a.kicker}</p>
+            <h3>{a.title}</h3>
+            <p class="dim">{a.body}</p>
+            <a class="mono aud-link" href={a.href}>
+              {a.link} →
+            </a>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .aud {
+    padding-block: var(--s-8);
+  }
+
+  .aud-title {
+    font-size: var(--step-4);
+    margin-block: var(--s-2) var(--s-5);
+  }
+
+  .aud-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+    gap: var(--s-3);
+  }
+
+  .aud-card {
+    padding: var(--s-4);
+    display: grid;
+    gap: var(--s-2);
+    align-content: start;
+    transition: border-color var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out);
+  }
+
+  .aud-card:hover {
+    border-color: var(--line-bright);
+    transform: translateY(-3px);
+  }
+
+  .aud-kicker {
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--capsule);
+  }
+
+  .aud-card h3 {
+    font-size: var(--step-2);
+  }
+
+  .aud-card .dim {
+    font-size: var(--step--1);
+    line-height: 1.65;
+  }
+
+  .aud-link {
+    font-size: var(--step--1);
+    justify-self: start;
+  }
+</style>

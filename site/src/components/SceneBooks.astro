@@ -4,8 +4,8 @@
 
 <section class="books hairline-top" id="books" data-scene>
   <div class="wrap">
-    <p class="eyebrow">06 · go deeper</p>
-    <h2 class="books-title">The library ships with the OS.</h2>
+    <p class="eyebrow">07 · go deeper</p>
+    <h2 class="books-title">The book ships with the OS.</h2>
     <div class="books-grid">
       <a class="book-card card" href="/book/">
         <span class="book-spine" data-book aria-hidden="true"></span>
@@ -17,18 +17,6 @@
             who want to know exactly how the machine works.
           </p>
           <p class="mono book-tag">36 chapters · grounded in code</p>
-        </div>
-      </a>
-      <a class="book-card card" href="/handbook/">
-        <span class="book-spine" data-handbook aria-hidden="true"></span>
-        <div class="book-meta">
-          <h3>The Contributor Handbook</h3>
-          <p class="dim">
-            Operational law for people working on Astrid itself: the polyrepo,
-            the kernel-is-dumb rule, the RFC trigger, contribution tiers, and
-            the release process.
-          </p>
-          <p class="mono book-tag">the rules of the road</p>
         </div>
       </a>
     </div>
@@ -47,8 +35,7 @@
 
   .books-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-    gap: var(--s-3);
+    max-width: 40rem;
   }
 
   .book-card {
@@ -73,12 +60,6 @@
     background:
       linear-gradient(to right, rgb(255 255 255 / 8%), transparent 30%),
       var(--aurora);
-  }
-
-  .book-card[href='/handbook/'] .book-spine {
-    background:
-      linear-gradient(to right, rgb(255 255 255 / 8%), transparent 30%),
-      linear-gradient(160deg, #f472b6, #a78bfa);
   }
 
   .book-meta h3 {
