@@ -6,8 +6,9 @@ import CapsuleRing from './CapsuleRing.astro';
 ---
 
 <header class="hero" id="top">
-  <CapsuleRing />
-  <div class="wrap hero-inner">
+  <div class="hero-stage">
+    <CapsuleRing />
+    <div class="wrap hero-inner">
     <p class="eyebrow">Astrid</p>
     <h1 class="hero-title">
       Let your AI<br /><span class="gradient-text">actually do things</span>.
@@ -25,21 +26,51 @@ import CapsuleRing from './CapsuleRing.astro';
       <span class="hero-claim-dot" aria-hidden="true"></span>
       <span id="hero-claim-text">waking the real Astrid up in this tab…</span>
     </p>
+    </div>
   </div>
 </header>
 
 <style>
+  /* The hero is taller than the screen: the extra height is the scroll the
+     visitor spends condensing the burst into the dot on the rail. The stage
+     stays pinned while that happens; everything is a pure function of scroll
+     position, so scrolling back up re-opens the eye exactly. */
   .hero {
     position: relative;
-    min-height: 100svh;
+    height: 240svh;
+  }
+
+  .hero-stage {
+    position: sticky;
+    top: 0;
+    height: 100svh;
     display: grid;
     align-items: center;
+    overflow: hidden;
   }
 
   .hero-inner {
     position: relative;
     z-index: 1;
     padding-block: var(--s-7);
+    opacity: calc(1 - var(--hero-p, 0) * 1.6);
+    translate: 0 calc(var(--hero-p, 0) * -5rem);
+  }
+
+  .hero.is-condensed .hero-inner {
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero {
+      height: auto;
+      min-height: 100svh;
+    }
+
+    .hero-inner {
+      opacity: 1;
+      translate: none;
+    }
   }
 
   .hero-title {

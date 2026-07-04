@@ -33,6 +33,8 @@ in vec4 aDim;
 uniform mat4 uVP;
 uniform mat3 uTilt;
 uniform vec3 uCenter;
+// scroll condensation: the whole disc contracts around its centre
+uniform float uScale;
 // this wheel's rotation, angular velocity, and depth offset
 uniform vec3 uWheel;
 
@@ -50,7 +52,7 @@ void main() {
   float c = cos(ang), s = sin(ang);
   vec3 spun = vec3(c * local.x - s * local.y, s * local.x + c * local.y, local.z);
   spun.z += uWheel.z;
-  vec3 world = uTilt * spun + uCenter;
+  vec3 world = uTilt * spun * uScale + uCenter;
 
   vec3 n = vec3(c * aNormal.x - s * aNormal.y, s * aNormal.x + c * aNormal.y, aNormal.z);
   n = uTilt * n;
@@ -293,6 +295,13 @@ export interface BurstHandle {
   stop(): void;
   /** feed real kernel activity in: events nudge the wheels and light accents */
   kick(events: number): void;
+  /**
+   * scroll condensation, 0..1: the wheels spin up, the depth blur tightens,
+   * the accents brighten, and the whole disc contracts toward the condense
+   * target — the dot on the rail the rest of the page builds on. Pure
+   * function of p, so scrolling back re-expands it exactly.
+   */
+  scrub(p: number): void;
 }
 
 /**
@@ -306,6 +315,9 @@ export interface BurstHandle {
 export function startBurst(
   canvas: HTMLCanvasElement,
   centerFrac: { x: number; y: number },
+  // where the condensed dot lands, in canvas fractions, re-read every frame
+  // while scrubbing so it tracks resizes (the rail x is in px, not %)
+  condenseTo?: () => { x: number; y: number },
 ): BurstHandle | null {
   const gl = canvas.getContext('webgl2', { alpha: true, antialias: true });
   if (!gl) return null;
@@ -357,6 +369,7 @@ export function startBurst(
   const uVP = gl.getUniformLocation(prog, 'uVP');
   const uTilt = gl.getUniformLocation(prog, 'uTilt');
   const uCenter = gl.getUniformLocation(prog, 'uCenter');
+  const uScale = gl.getUniformLocation(prog, 'uScale');
   const uTime = gl.getUniformLocation(prog, 'uTime');
   const uWheel = gl.getUniformLocation(prog, 'uWheel');
   const uEnergy = gl.getUniformLocation(prog, 'uEnergy');
@@ -427,6 +440,15 @@ export function startBurst(
 
   const DIST = 10;
   const FOVY = (35 * Math.PI) / 180;
+  const F = 1 / Math.tan(FOVY / 2);
+  let aspect = 1;
+
+  // canvas fraction → world position on the z = -DIST plane
+  const worldFromFrac = (fx: number, fy: number): [number, number, number] => [
+    ((fx * 2 - 1) * aspect * DIST) / F,
+    ((1 - fy * 2) * DIST) / F,
+    -DIST,
+  ];
 
   function resize(): void {
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -436,14 +458,9 @@ export function startBurst(
       canvas.width = w;
       canvas.height = h;
     }
-    const aspect = w / h;
+    aspect = w / h;
     gl!.useProgram(prog);
     gl!.uniformMatrix4fv(uVP, false, perspective(FOVY, aspect, 0.1, 60));
-    // place the burst centre at the requested canvas fraction
-    const f = 1 / Math.tan(FOVY / 2);
-    const ndcX = centerFrac.x * 2 - 1;
-    const ndcY = 1 - centerFrac.y * 2;
-    gl!.uniform3f(uCenter, (ndcX * aspect * DIST) / f, (ndcY * DIST) / f, -DIST);
 
     tgtW = Math.max(1, Math.round(w * TARGET_SCALE));
     tgtH = Math.max(1, Math.round(h * TARGET_SCALE));
@@ -464,7 +481,11 @@ export function startBurst(
   io.observe(canvas);
 
   const springs = [new WheelSpring(0), new WheelSpring(1), new WheelSpring(2)];
+  // per-wheel extra rotation over the full condensation (mixed directions,
+  // so the collapse reads as the whole mechanism winding shut)
+  const SPIN = [2.8, -3.6, 4.6];
   let energy = 0;
+  let scrubP = 0;
   let last = 0;
   let raf = 0;
   let stopped = false;
@@ -478,21 +499,39 @@ export function startBurst(
       if (!still) for (const s of springs) s.step(t, dt);
       energy *= Math.exp(-Math.min(dt, 0.1) * 1.6);
 
+      // condensation: smooth the scroll fraction, contract the disc, and
+      // drift its centre toward the landing dot on the rail
+      const e = scrubP * scrubP * (3 - 2 * scrubP);
+      const tgt = condenseTo?.() ?? centerFrac;
+      const cx = centerFrac.x + (tgt.x - centerFrac.x) * e;
+      const cy = centerFrac.y + (tgt.y - centerFrac.y) * e;
+      // mid-collapse the wheels carry fake velocity so the planks fan out,
+      // then tuck back in as the disc closes to a dot
+      const fan = 4 * scrubP * (1 - scrubP);
+
       gl.viewport(0, 0, tgtW, tgtH);
       for (let i = 0; i < WHEELS; i++) {
         // pass 1: the wheel into its texture (premultiplied)
         gl.useProgram(prog);
         gl.uniform1f(uTime, t);
-        gl.uniform1f(uEnergy, energy);
-        gl.uniform3f(uWheel, springs[i].theta, springs[i].vel, WHEEL_Z[i]);
+        gl.uniform1f(uEnergy, energy + 1.1 * e);
+        gl.uniform1f(uScale, 1 - 0.955 * e);
+        gl.uniform3fv(uCenter, worldFromFrac(cx, cy));
+        gl.uniform3f(
+          uWheel,
+          springs[i].theta + SPIN[i] * e,
+          springs[i].vel + SPIN[i] * fan,
+          WHEEL_Z[i],
+        );
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.bindFramebuffer(gl.FRAMEBUFFER, wheelFbo[i]);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.bindVertexArray(vaos[i]);
         gl.drawArraysInstanced(gl.TRIANGLES, 0, 36, wheels[i].count);
 
-        // pass 2: true Gaussian, horizontal then vertical, per-wheel radius
-        const s = BLUR_STRENGTH[i];
+        // pass 2: true Gaussian, horizontal then vertical, per-wheel radius;
+        // the depth of field racks toward sharp as the disc condenses
+        const s = BLUR_STRENGTH[i] * (1 - 0.9 * e);
         gl.useProgram(blurProg);
         gl.bindVertexArray(emptyVao);
         gl.disable(gl.BLEND);
@@ -548,6 +587,10 @@ export function startBurst(
       const i = Math.floor(Math.random() * WHEELS);
       springs[i].vel += (Math.random() > 0.5 ? 1 : -1) * 0.05 * n;
       energy = Math.min(energy + n * 0.08, 1.4);
+    },
+    scrub(p: number) {
+      if (still) return;
+      scrubP = Math.min(1, Math.max(0, p));
     },
   };
 }
