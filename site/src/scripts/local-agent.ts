@@ -228,13 +228,38 @@ export async function removeModel(bridge: AstridBridge): Promise<void> {
  * Connect an OpenAI-compatible endpoint instead of downloading anything.
  * Verified with a real /models request before being accepted. The key is
  * held in memory only. Works without WebGPU — the model is elsewhere.
+ *
+ * People paste the server root (http://localhost:1234) as often as the API
+ * base (…/v1), so both are tried. Some servers (LM Studio) answer 200 on
+ * wrong paths, so a status check proves nothing — only a real model list
+ * counts as a working base.
  */
 export async function connectEndpoint(bridge: AstridBridge, e: AgentEndpoint): Promise<void> {
-  const base = e.base.replace(/\/+$/, '');
+  const typed = e.base.replace(/\/+$/, '');
   const headers: Record<string, string> = {};
   if (e.key) headers.Authorization = `Bearer ${e.key}`;
-  const res = await fetch(`${base}/models`, { headers });
-  if (!res.ok) throw new Error(`endpoint answered ${res.status} on /models`);
+  const candidates = /\/v\d+$/.test(typed) ? [typed] : [typed, `${typed}/v1`];
+  let base: string | null = null;
+  let lastError = 'endpoint did not answer';
+  for (const c of candidates) {
+    try {
+      const res = await fetch(`${c}/models`, { headers });
+      if (!res.ok) {
+        lastError = `endpoint answered ${res.status} on ${c}/models`;
+        continue;
+      }
+      const json = (await res.json()) as { data?: unknown };
+      if (!Array.isArray(json.data)) {
+        lastError = `${c}/models did not return a model list — wrong path?`;
+        continue;
+      }
+      base = c;
+      break;
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+    }
+  }
+  if (!base) throw new Error(lastError);
   endpoint = { ...e, base };
   const host = new URL(base).host;
   publishStatus(bridge, 'ready', `your model · ${host}${e.model ? ` · ${e.model}` : ''}`);
