@@ -23,11 +23,11 @@ export type AgentState = 'off' | 'unsupported' | 'loading' | 'ready' | 'thinking
 // fleet. NON-THINKING models only: the Qwen3/3.5 hybrid-reasoning line
 // free-runs <think> blocks in WebLLM (its ported chat template has no
 // working thinking switch), and an 0.8B thinker rings degenerate loops at
-// visitors. Desktop gets Gemma 3 1B (registry spelling 'gemma3-', no
-// hyphen; f16-only wasm, 711 MB VRAM): the smallest model that reliably
-// holds "you are on a real OS, not a hypothetical" — the failure that
-// started all of this. No-f16 desktops (many Android-class GPUs are
-// desktop-shaped too) get Llama 3.2 1B q4f32. Phones get SmolLM2-360M:
+// visitors. Desktop gets Llama 3.2 1B. Gemma 3 1B is OUT: its WebLLM
+// record shipped a window-size conflict AND its q4f16 cut degenerates
+// into two-word repetition loops on real questions — two strikes. No-f16
+// desktops (many Android-class GPUs are desktop-shaped too) get the same
+// Llama in q4f32. Phones get SmolLM2-360M:
 // iOS Safari kills tabs long before a 1B's working set, and a small brain
 // beats a crashed tab.
 let picked = '';
@@ -47,7 +47,7 @@ export async function pickModel(): Promise<string> {
     ((navigator as unknown as { deviceMemory?: number }).deviceMemory ?? 8) <= 4;
   picked = mobile
     ? (f16 ? 'SmolLM2-360M-Instruct-q4f16_1-MLC' : 'SmolLM2-360M-Instruct-q4f32_1-MLC')
-    : (f16 ? 'gemma3-1b-it-q4f16_1-MLC' : 'Llama-3.2-1B-Instruct-q4f32_1-MLC');
+    : (f16 ? 'Llama-3.2-1B-Instruct-q4f16_1-MLC' : 'Llama-3.2-1B-Instruct-q4f32_1-MLC');
   return picked;
 }
 
@@ -55,7 +55,7 @@ export async function pickModel(): Promise<string> {
 export async function pickModelSize(): Promise<string> {
   const m = await pickModel();
   if (m.startsWith('SmolLM2')) return m.includes('q4f32') ? '~370 MB' : '~250 MB';
-  if (m.startsWith('Llama')) return '~800 MB';
+  if (m.startsWith('Llama')) return m.includes('q4f32') ? '~800 MB' : '~600 MB';
   return '~550 MB';
 }
 
@@ -67,6 +67,8 @@ interface Engine {
         stream: true;
         temperature?: number;
         max_tokens?: number;
+        frequency_penalty?: number;
+        presence_penalty?: number;
       }): Promise<AsyncIterable<{ choices: { delta?: { content?: string } }[] }>>;
     };
   };
@@ -131,6 +133,7 @@ function chatOptsFor(model: string): Record<string, number> | undefined {
 // best non-thinking model instead of leaving the visitor with a dead pill.
 function fallbackFor(model: string): string | null {
   if (model.startsWith('gemma3')) return 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+  if (model.startsWith('Llama')) return 'Qwen2.5-0.5B-Instruct-q4f32_1-MLC';
   if (model.startsWith('SmolLM2')) return 'Qwen2.5-0.5B-Instruct-q4f32_1-MLC';
   return null;
 }
@@ -299,10 +302,14 @@ async function generate(
   if (!engine) throw new Error('no model: download one or connect an endpoint');
   let raw = '';
   let n = 0;
+  // The penalties are load-bearing: 1B-class quantized models at low
+  // temperature ring two-word loops ("The core. The core.") without them.
   const stream = await engine.chat.completions.create({
     messages,
     stream: true,
-    temperature: 0.3,
+    temperature: 0.55,
+    frequency_penalty: 0.4,
+    presence_penalty: 0.3,
     max_tokens: maxTokens,
   });
   for await (const chunk of stream) {
@@ -329,10 +336,13 @@ export async function completeOpenAi(
 ): Promise<string> {
   publishStatus(bridge, 'thinking', 'fleet turn');
   let last = 0;
-  const full = await generate(messages, maxTokens, (_t, n) => {
+  const full = await generate(messages, maxTokens, (t, n) => {
     if (n - last >= 8) {
       last = n;
       void bridge.publish('site.agent.v1.token', JSON.stringify({ n }));
+      // Running text for the pill: the fleet's final answer arrives only
+      // when the react loop finishes, so this is the visitor's live view.
+      void bridge.publish('site.agent.v1.partial', JSON.stringify({ text: t }));
     }
   });
   publishStatus(bridge, 'ready', 'fleet turn finished');

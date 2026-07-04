@@ -546,6 +546,20 @@
         /* delta parse is best-effort; the terminal reply is authoritative */
       }
     });
+    // The generation itself streams here: the openai-compat capsule only
+    // sees the completion once it's whole, so the model publishes its
+    // running text while it works. Cumulative text — replace, not append.
+    b.subscribe('site.agent.v1.partial', (_t, json) => {
+      if (!fleetTurn) return;
+      try {
+        const p = JSON.parse(json) as { text?: string };
+        if (!p.text) return;
+        fleetTurn.text = p.text;
+        renderTranscript();
+      } catch {
+        /* partials are best-effort; the terminal reply is authoritative */
+      }
+    });
     b.subscribe('agent.v1.response', (_t, json) => {
       if (!fleetTurn) return;
       try {
