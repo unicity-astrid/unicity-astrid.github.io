@@ -304,9 +304,11 @@ export interface BurstHandle {
 /**
  * Where and how the eye sits, sampled every frame. The caller derives it
  * from scroll position (a pure function, so scrolling back reverses every
- * move). x/y are canvas fractions; yaw/pitch are the gaze (0/0 = facing the
- * visitor dead-on); alpha dims the whole eye; spin (0..1) winds extra
- * rotation into the wheels during the rise.
+ * move). x/y are canvas fractions. yaw/pitch are the IDLE gaze; gaze (0..1)
+ * blends from that idle toward the exact rotation that faces the camera —
+ * computed inside the engine from where the eye actually is, so "looking at
+ * you" is geometry, not hand-tuned angles. alpha dims the whole eye; spin
+ * winds extra rotation into the wheels during the rise.
  */
 export interface BurstPose {
   x: number;
@@ -314,6 +316,7 @@ export interface BurstPose {
   scale: number;
   yaw: number;
   pitch: number;
+  gaze: number;
   alpha: number;
   spin: number;
 }
@@ -499,6 +502,21 @@ export function startBurst(
       // the visitor, and then recede into its watcher pose — reversibly
       const P = pose();
 
+      // the look-at: from the eye's actual world position, the rotation
+      // whose face normal points at the camera. gaze blends the idle angles
+      // toward it, so at centre it faces you dead-on and from the margin it
+      // half-turns toward you — one rule, every position.
+      const centre = worldFromFrac(P.x, P.y);
+      const len = Math.hypot(centre[0], centre[1], DIST);
+      const dx = -centre[0] / len;
+      const dy = -centre[1] / len;
+      const yawC = Math.asin(Math.max(-1, Math.min(1, dx)));
+      const pitchC = Math.asin(
+        Math.max(-1, Math.min(1, -dy / Math.max(1e-4, Math.cos(yawC)))),
+      );
+      const yaw = P.yaw + (yawC - P.yaw) * P.gaze;
+      const pitch = P.pitch + (pitchC - P.pitch) * P.gaze;
+
       gl.viewport(0, 0, tgtW, tgtH);
       for (let i = 0; i < WHEELS; i++) {
         // pass 1: the wheel into its texture (premultiplied)
@@ -506,8 +524,8 @@ export function startBurst(
         gl.uniform1f(uTime, t);
         gl.uniform1f(uEnergy, energy);
         gl.uniform1f(uScale, P.scale);
-        gl.uniformMatrix3fv(uTilt, false, tiltOf(P.pitch, P.yaw));
-        gl.uniform3fv(uCenter, worldFromFrac(P.x, P.y));
+        gl.uniformMatrix3fv(uTilt, false, tiltOf(pitch, yaw));
+        gl.uniform3fv(uCenter, centre);
         gl.uniform3f(
           uWheel,
           springs[i].theta + SPIN[i] * P.spin,

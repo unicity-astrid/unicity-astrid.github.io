@@ -193,9 +193,11 @@ const front = burst(170, 23, 130, 255);
   //   FACING (hero scrolled) — rises to centre, grows, turns to meet you
   //   WATCH  (rest of page) — recedes to the right margin, small and dim,
   //                           following the scroll and flaring on real work
-  const AWAKE: BurstPose  = { x: 0.78, y: 0.50, scale: 1.00, yaw: -0.52, pitch: 0.34, alpha: 1.00, spin: 0 };
-  const FACING: BurstPose = { x: 0.50, y: 0.44, scale: 1.38, yaw:  0.00, pitch: 0.05, alpha: 1.00, spin: 1 };
-  const WATCH: BurstPose  = { x: 0.86, y: 0.55, scale: 0.50, yaw: -0.34, pitch: 0.22, alpha: 0.35, spin: 1 };
+  // yaw/pitch are the idle glance; gaze blends toward the engine-computed
+  // look-at-the-camera rotation, so "facing you" is geometry, never tuning
+  const AWAKE: BurstPose  = { x: 0.78, y: 0.50, scale: 1.00, yaw: -0.52, pitch: 0.34, gaze: 0.0, alpha: 1.00, spin: 0 };
+  const FACING: BurstPose = { x: 0.50, y: 0.44, scale: 1.38, yaw:  0.00, pitch: 0.00, gaze: 1.0, alpha: 1.00, spin: 1 };
+  const WATCH: BurstPose  = { x: 0.86, y: 0.55, scale: 0.50, yaw: -0.34, pitch: 0.22, gaze: 0.9, alpha: 0.35, spin: 1 };
 
   const smooth = (t: number): number => {
     const c = Math.min(1, Math.max(0, t));
@@ -207,11 +209,12 @@ const front = burst(170, 23, 130, 255);
     scale: a.scale + (b.scale - a.scale) * t,
     yaw: a.yaw + (b.yaw - a.yaw) * t,
     pitch: a.pitch + (b.pitch - a.pitch) * t,
+    gaze: a.gaze + (b.gaze - a.gaze) * t,
     alpha: a.alpha + (b.alpha - a.alpha) * t,
     spin: a.spin + (b.spin - a.spin) * t,
   });
 
-  function pose(): BurstPose {
+  function targetPose(): BurstPose {
     const hero = document.getElementById('top');
     if (!hero) return AWAKE;
     const r = hero.getBoundingClientRect();
@@ -223,6 +226,25 @@ const front = burst(170, 23, 130, 255);
     const p1 = smooth(-r.top / span);
     const p2 = smooth((innerHeight - r.bottom) / (0.8 * innerHeight));
     return mix(mix(AWAKE, FACING, p1), WATCH, p2);
+  }
+
+  // The scroll defines where the eye SHOULD be; the rendered pose chases it
+  // through a short lag, so quantized wheel notches become glides and the
+  // corner at the hero's unpin rounds itself off. The target stays a pure
+  // function of scroll, so the journey is still fully reversible.
+  let cur: BurstPose | null = null;
+  let lastMs = 0;
+  function pose(): BurstPose {
+    const target = targetPose();
+    const now = performance.now();
+    const dt = lastMs ? Math.min(0.1, (now - lastMs) / 1000) : 1;
+    lastMs = now;
+    if (!cur) {
+      cur = target;
+      return cur;
+    }
+    cur = mix(cur, target, 1 - Math.exp(-dt / 0.18));
+    return cur;
   }
 
   function wire(): void {
