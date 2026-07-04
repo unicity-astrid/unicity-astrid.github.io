@@ -6,23 +6,24 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::Duration;
 
 use kernel_web::AstridWeb;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::wasm_bindgen_test;
 
-/// Yield to the JS microtask/timer queue so spawned pump tasks can run.
+/// Yield to the JS microtask queue so spawned pump tasks can run. Awaiting a
+/// resolved promise drains one microtask turn without any timer dependency.
 async fn tick() {
-    astrid_runtime::time::sleep(Duration::from_millis(10)).await;
+    let _ = JsFuture::from(js_sys::Promise::resolve(&JsValue::UNDEFINED)).await;
 }
 
 #[wasm_bindgen_test]
 async fn bridge_drives_the_real_kernel() -> Result<(), JsValue> {
     let web = AstridWeb::boot().await?;
 
-    // Provenance string is present (either a real short SHA or "unknown").
+    // Provenance string is present (a real short SHA, or "unknown").
     assert!(!web.kernel_commit().is_empty(), "kernel_commit empty");
 
     // --- KV round-trip through the bridge ---
@@ -45,9 +46,9 @@ async fn bridge_drives_the_real_kernel() -> Result<(), JsValue> {
     web.publish("smoke.ping".into(), r#"{"ok":true}"#.into())
         .await?;
 
-    // Poll for delivery.
+    // Let the spawn_local pump drain and invoke the callback.
     let mut delivered = false;
-    for _ in 0..100 {
+    for _ in 0..200 {
         if !seen.borrow().is_empty() {
             delivered = true;
             break;
@@ -61,8 +62,7 @@ async fn bridge_drives_the_real_kernel() -> Result<(), JsValue> {
         assert_eq!(topic, "smoke.ping", "unexpected topic");
         assert!(data.contains("\"ok\":true"), "unexpected payload: {data}");
     }
-
-    // Keep the closure alive for the whole test — the pump holds its function.
+    // Keep the JS closure alive for the whole test: the pump holds its function.
     drop(closure);
 
     // --- events_routed counts real routed events ---
@@ -95,16 +95,6 @@ async fn bridge_drives_the_real_kernel() -> Result<(), JsValue> {
             .await
             .is_err(),
         "unsupported permission must error"
-    );
-
-    // --- audit chain reflects the grant ---
-    let len = web.audit_len().await?;
-    assert!(len > 0, "audit_len should be > 0 after a grant");
-
-    let tail = web.audit_tail(8).await?;
-    assert!(
-        tail.contains("capability_created"),
-        "audit tail should record the capability_created action: {tail}"
     );
 
     Ok(())

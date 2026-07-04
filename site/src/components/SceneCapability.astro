@@ -40,8 +40,12 @@
       </p>
     </div>
     <div class="card cap-ledger">
-      <p class="mono cap-title dim">audit ledger</p>
+      <p class="mono cap-title dim" id="cap-ledger-title">decision log</p>
       <ol id="cap-ledger" class="mono" reversed></ol>
+      <p class="mono cap-ledger-note dim" id="cap-ledger-note">
+        every entry is a real CapabilityStore decision; the hash-linked audit
+        view lands with the astrid-audit wasm fix
+      </p>
     </div>
   </div>
 </section>
@@ -192,6 +196,12 @@
   .cap-ledger :global(.grant) {
     color: var(--grant);
   }
+
+  .cap-ledger-note {
+    margin-top: var(--s-2);
+    font-size: 0.7rem;
+    line-height: 1.5;
+  }
 </style>
 
 <script>
@@ -240,7 +250,7 @@
           result.dataset.kind = ok ? 'grant' : 'deny';
           result.textContent = ok
             ? `GRANTED · ${perm} ${res}${note}`
-            : `DENIED · no capability covers ${perm} ${res} · denial recorded`;
+            : `DENIED · no capability covers ${perm} ${res}`;
           await stamp(bridge, ok, `${perm} ${res}`);
         })();
       });
@@ -253,10 +263,25 @@
   }
 
   async function stamp(bridge: AstridBridge, ok: boolean, what: string): Promise<void> {
-    // The ledger shows the real audit tail; the newest entry is the decision
-    // that just happened.
+    // With the audit read surface available, show the real hash-linked tail;
+    // until then, log the real store decisions as they happen (no fake hashes).
+    if (!bridge.auditTail) {
+      const li = document.createElement('li');
+      const when = document.createElement('span');
+      when.className = 'hash';
+      when.textContent = new Date().toLocaleTimeString(undefined, { hour12: false });
+      const action = document.createElement('span');
+      action.className = ok ? 'grant' : 'deny';
+      action.textContent = `${ok ? 'GRANT' : 'DENY'} · ${what}`;
+      li.append(when, action);
+      ledger.prepend(li);
+      while (ledger.childElementCount > 6) ledger.lastElementChild?.remove();
+      return;
+    }
     try {
-      const entries = JSON.parse(await bridge.audit_tail(6)) as Array<Record<string, unknown>>;
+      document.getElementById('cap-ledger-title')!.textContent = 'audit ledger';
+      document.getElementById('cap-ledger-note')!.hidden = true;
+      const entries = JSON.parse(await bridge.auditTail(6)) as Array<Record<string, unknown>>;
       ledger.innerHTML = '';
       for (const e of entries.reverse()) {
         const li = document.createElement('li');

@@ -200,7 +200,7 @@
     dot.dataset.state = status;
     $('hud-f-state').textContent = status;
     if (status === 'online' && bridge) {
-      commit = bridge.kernel_commit();
+      commit = bridge.kernelCommit();
       $('hud-f-build').textContent = `astrid-kernel@${commit}`;
       startTicker();
     } else if (status === 'offline') {
@@ -213,11 +213,13 @@
     const tick = async () => {
       const bridge = kernel();
       if (!bridge) return;
-      const events = bridge.events_routed();
-      const audit = await bridge.audit_len();
+      const events = bridge.eventsRouted();
       text.textContent = `kernel online · ${events} events routed`;
       $('hud-f-events').textContent = String(events);
-      $('hud-f-audit').textContent = String(audit);
+      // the audit read surface is pending a core wasm fix; never fake it
+      $('hud-f-audit').textContent = bridge.auditLen
+        ? String(await bridge.auditLen())
+        : 'pending core fix';
       if (!drawer.hidden) await refreshAudit();
     };
     void tick();
@@ -226,9 +228,17 @@
 
   async function refreshAudit(): Promise<void> {
     const bridge = kernel();
-    if (!bridge) return;
+    if (!bridge?.auditTail) {
+      const list = $('hud-audit');
+      if (!list.childElementCount) {
+        const li = document.createElement('li');
+        li.innerHTML = '<span class="action">in-browser audit reads land with the astrid-audit wasm fix</span>';
+        list.append(li);
+      }
+      return;
+    }
     try {
-      const entries = JSON.parse(await bridge.audit_tail(8)) as Array<Record<string, unknown>>;
+      const entries = JSON.parse(await bridge.auditTail(8)) as Array<Record<string, unknown>>;
       const list = $('hud-audit');
       list.innerHTML = '';
       for (const e of entries.reverse()) {

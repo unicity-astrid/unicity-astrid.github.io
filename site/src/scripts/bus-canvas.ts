@@ -82,7 +82,9 @@ export class AstridBus extends HTMLElement {
     this.unsub = onKernel((status, bridge) => {
       if (status === 'online' && bridge && !this.live) {
         this.live = true;
-        bridge.subscribe('**', () => this.onRealEvent());
+        // `site.*` = the whole site.* subtree (real TopicMatcher grammar);
+        // every page-generated bus event fires a pulse.
+        bridge.subscribe('site.*', () => this.onRealEvent());
       }
     });
 

@@ -102,7 +102,7 @@
     if (status !== 'online') return;
     setInterval(() => {
       const bridge = kernel();
-      if (bridge) el.textContent = `ASTRID · ${bridge.events_routed()} EVENTS ROUTED IN YOUR TAB`;
+      if (bridge) el.textContent = `ASTRID · ${bridge.eventsRouted()} EVENTS ROUTED IN YOUR TAB`;
     }, 2000);
   });
 </script>

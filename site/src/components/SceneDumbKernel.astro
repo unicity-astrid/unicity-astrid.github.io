@@ -101,7 +101,7 @@
   onKernel((status, bridge) => {
     if (status !== 'online' || !bridge) return;
     caption.hidden = false;
-    bridge.subscribe('site.v1.demo.**', () => {
+    bridge.subscribe('site.v1.demo.*', () => {
       seen += 1;
       count.textContent = String(seen);
     });

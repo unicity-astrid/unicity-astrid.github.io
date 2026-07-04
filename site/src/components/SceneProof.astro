@@ -107,7 +107,8 @@ const layers = [
   import { onKernel } from '../scripts/kernel';
 
   const caption = document.getElementById('proof-caption')!;
-  onKernel((status) => {
-    caption.hidden = status !== 'online';
+  onKernel((status, bridge) => {
+    // only claim the chain is on the page once the audit read surface exists
+    caption.hidden = status !== 'online' || !bridge?.auditTail;
   });
 </script>

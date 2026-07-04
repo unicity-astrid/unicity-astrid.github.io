@@ -9,16 +9,17 @@ declare module 'kernel-web' {
 
   export class AstridWeb {
     static boot(): Promise<AstridWeb>;
-    kernel_commit(): string;
-    kv_set(ns: string, key: string, val: string): Promise<void>;
-    kv_get(ns: string, key: string): Promise<string | undefined>;
+    kernelCommit(): string;
+    kvSet(ns: string, key: string, val: string): Promise<void>;
+    kvGet(ns: string, key: string): Promise<string | undefined>;
     publish(topic: string, json: string): Promise<void>;
     subscribe(pattern: string, cb: (topic: string, json: string) => void): void;
     grant(principal: string, resource: string, perm: string): Promise<string>;
     check(principal: string, resource: string, perm: string): Promise<boolean>;
-    audit_len(): Promise<bigint>;
-    audit_tail(n: number): Promise<string>;
-    events_routed(): bigint;
+    /** absent until the astrid-audit wasm fix lands */
+    auditLen?(): Promise<bigint>;
+    auditTail?(n: number): Promise<string>;
+    eventsRouted(): bigint;
   }
 
   export default init;

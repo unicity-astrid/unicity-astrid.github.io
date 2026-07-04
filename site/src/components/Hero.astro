@@ -102,7 +102,7 @@
   onKernel((status, bridge) => {
     claim.dataset.state = status;
     if (status === 'online' && bridge) {
-      text.textContent = `this page is running the real Astrid kernel · astrid-kernel@${bridge.kernel_commit()}`;
+      text.textContent = `this page is running the real Astrid kernel · astrid-kernel@${bridge.kernelCommit()}`;
     } else if (status === 'offline') {
       text.textContent = 'kernel unavailable in this browser · showing static scenes';
     }

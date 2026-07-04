@@ -8,16 +8,22 @@
  */
 
 export interface AstridBridge {
-  kernel_commit(): string;
-  kv_set(ns: string, key: string, val: string): Promise<void>;
-  kv_get(ns: string, key: string): Promise<string | undefined>;
+  kernelCommit(): string;
+  kvSet(ns: string, key: string, val: string): Promise<void>;
+  kvGet(ns: string, key: string): Promise<string | undefined>;
   publish(topic: string, json: string): Promise<void>;
+  /**
+   * Topic grammar (real TopicMatcher semantics): exact match, a trailing
+   * `.*` matches the whole subtree, a mid-segment `*` matches one segment.
+   * There is no `**`.
+   */
   subscribe(pattern: string, cb: (topic: string, json: string) => void): void;
   grant(principal: string, resource: string, perm: string): Promise<string>;
   check(principal: string, resource: string, perm: string): Promise<boolean>;
-  audit_len(): Promise<bigint>;
-  audit_tail(n: number): Promise<string>;
-  events_routed(): bigint;
+  /** Absent until astrid-audit gets its wasm fix (runtime-class bug #7). */
+  auditLen?(): Promise<bigint>;
+  auditTail?(n: number): Promise<string>;
+  eventsRouted(): bigint;
 }
 
 export type KernelStatus = 'booting' | 'online' | 'offline';

@@ -8,11 +8,13 @@
 //! - `kv_set`/`kv_get` go through `kernel.kv` (the injected [`KvStore`]).
 //! - `publish`/`subscribe` drive the real [`EventBus`].
 //! - `grant`/`check` mint and verify real signed [`CapabilityToken`]s in the
-//!   kernel's [`CapabilityStore`], and `grant` stamps a real BLAKE3-chained
-//!   audit entry.
-//! - `audit_len`/`audit_tail` read the real signed audit chain.
+//!   kernel's [`CapabilityStore`].
 //! - `events_routed` counts every event the kernel routes, via a crate-owned
 //!   subscribe-everything pump started at boot.
+//!
+//! The audit surface (`audit_len`/`audit_tail`) is deliberately absent: the
+//! real `AuditLog` storage panics on `wasm32-unknown-unknown` (see the note on
+//! the impl block).
 //!
 //! [`KvStore`]: astrid_storage::KvStore
 //! [`EventBus`]: astrid_events::EventBus
@@ -23,7 +25,6 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use astrid_audit::{ApprovalScope, AuditAction, AuditOutcome, AuthorizationProof};
 use astrid_capabilities::{AuditEntryId, CapabilityToken, ResourcePattern, TokenScope};
 use astrid_core::dirs::AstridHome;
 use astrid_core::session_token::SessionToken;
@@ -228,8 +229,7 @@ impl AstridWeb {
         Ok(())
     }
 
-    /// Grant `principal` a real capability for `(resource, perm)` and record a
-    /// signed audit entry.
+    /// Grant `principal` a real capability for `(resource, perm)`.
     ///
     /// Mints a session-scoped [`CapabilityToken`] (signed by the kernel's
     /// runtime key) and adds it to the kernel `CapabilityStore`. Session scope
@@ -243,7 +243,7 @@ impl AstridWeb {
     /// # Errors
     ///
     /// Returns a `JsError` for an invalid principal, an unsupported permission,
-    /// an invalid resource pattern, or a store/audit failure.
+    /// an invalid resource pattern, or a capability-store failure.
     pub async fn grant(
         &self,
         principal: String,
@@ -274,26 +274,6 @@ impl AstridWeb {
             .await
             .map_err(|e| JsError::new(&format!("capability add failed: {e}")))?;
 
-        // A real grant is an auditable action: stamp the signed chain so
-        // `audit_tail` reflects what the visitor actually caused (DESIGN §5.4).
-        self.kernel
-            .audit_log
-            .append_with_principal(
-                self.kernel.session_id.clone(),
-                principal,
-                AuditAction::CapabilityCreated {
-                    token_id: token_id.clone(),
-                    resource,
-                    permissions: vec![permission],
-                    scope: ApprovalScope::Session,
-                },
-                AuthorizationProof::System {
-                    reason: "kernel-web grant".to_string(),
-                },
-                AuditOutcome::success(),
-            )
-            .map_err(|e| JsError::new(&format!("audit append failed: {e}")))?;
-
         Ok(token_id.to_string())
     }
 
@@ -323,67 +303,18 @@ impl AstridWeb {
             .is_some())
     }
 
-    /// Total number of entries on the real audit chain for this session.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `JsError` if the audit storage read fails.
-    #[wasm_bindgen(js_name = auditLen)]
-    pub async fn audit_len(&self) -> Result<u64, JsError> {
-        let count = self
-            .kernel
-            .audit_log
-            .count()
-            .map_err(|e| JsError::new(&format!("audit count failed: {e}")))?;
-        Ok(count as u64)
-    }
-
-    /// The last `n` audit entries as a JSON array (newest last).
-    ///
-    /// Each element is `{ "hash", "action", "type", "timestamp" }` read from
-    /// the real signed chain: `hash` is the entry's BLAKE3 content hash,
-    /// `action` its human description, `type` the action's serde tag, and
-    /// `timestamp` an RFC 3339 string.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `JsError` if the audit storage read or serialization fails.
-    #[wasm_bindgen(js_name = auditTail)]
-    pub async fn audit_tail(&self, n: u32) -> Result<String, JsError> {
-        let mut entries = self
-            .kernel
-            .audit_log
-            .get_session_entries(&self.kernel.session_id)
-            .map_err(|e| JsError::new(&format!("audit read failed: {e}")))?;
-
-        // Chain order is by timestamp; sort ascending so "newest last" holds.
-        entries.sort_by_key(|e| e.timestamp.0);
-
-        let take = n as usize;
-        let start = entries.len().saturating_sub(take);
-        let tail: Vec<serde_json::Value> = entries[start..]
-            .iter()
-            .map(|e| {
-                let type_tag = serde_json::to_value(&e.action)
-                    .ok()
-                    .and_then(|v| {
-                        v.get("type")
-                            .and_then(serde_json::Value::as_str)
-                            .map(str::to_string)
-                    })
-                    .unwrap_or_else(|| "unknown".to_string());
-                serde_json::json!({
-                    "hash": e.content_hash().to_string(),
-                    "action": e.action.description(),
-                    "type": type_tag,
-                    "timestamp": e.timestamp.0.to_rfc3339(),
-                })
-            })
-            .collect();
-
-        serde_json::to_string(&tail)
-            .map_err(|e| JsError::new(&format!("audit serialize failed: {e}")))
-    }
+    // NOTE: `audit_len` / `audit_tail` are intentionally NOT implemented.
+    //
+    // The real audit surface (`AuditLog::append` / `count` /
+    // `get_session_entries`) is backed by `SurrealKvAuditStorage`, whose sync
+    // trait bridges to the async `KvStore` through a `block_on` helper. On
+    // `wasm32-unknown-unknown` no ambient tokio runtime exists, so that helper
+    // builds a `tokio` current-thread runtime with `enable_all()`, whose time
+    // driver calls `std::time::Instant::now()` — unsupported on this target, so
+    // it panics at runtime. `AuditLog::in_memory` constructs, but any read or
+    // write panics. Rather than fake a chain, this method is omitted; a real
+    // audit surface needs a wasm-safe `block_on` in `astrid-audit` (out of
+    // scope for this crate). See the crate's final report.
 
     /// Number of events the kernel has routed since boot, from the crate-owned
     /// wildcard pump.
