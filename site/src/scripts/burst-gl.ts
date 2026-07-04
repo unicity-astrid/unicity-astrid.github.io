@@ -17,6 +17,9 @@ in vec3 aNormal;
 in vec4 aSeed;
 // per instance: width, thickness, shade jitter, accent (0|1|2)
 in vec4 aDim;
+// per instance: depth level (0|1|2) — parallel discs, each rotating at its
+// own speed and direction
+in float aLayer;
 
 uniform mat4 uVP;
 uniform mat3 uTilt;
@@ -29,7 +32,8 @@ out float vAccent;
 out float vR;
 
 void main() {
-  float ang = aSeed.x;
+  float spin = aLayer < 0.5 ? 0.013 : (aLayer < 1.5 ? -0.019 : 0.027);
+  float ang = aSeed.x + uTime * spin;
   // travelling wave, two frequencies moving in opposite directions, shaped
   // (sharp crest, slow trough) so slats feel pushed out and springing back
   // rather than metronomically pulsing
@@ -44,6 +48,7 @@ void main() {
   vec3 local = vec3(r0 + aPos.x * len, aPos.y * aDim.x, aPos.z * aDim.y);
   float c = cos(ang), s = sin(ang);
   vec3 spun = vec3(c * local.x - s * local.y, s * local.x + c * local.y, local.z);
+  spun.z += (aLayer - 1.0) * 0.55; // separate the discs in depth
   vec3 world = uTilt * spun + uCenter;
 
   vec3 n = vec3(c * aNormal.x - s * aNormal.y, s * aNormal.x + c * aNormal.y, aNormal.z);
@@ -77,11 +82,34 @@ void main() {
   if (vAccent > 1.5) base = vec3(0.22, 0.42, 0.40);        // bus teal, dimmed
   else if (vAccent > 0.5) base = vec3(0.42, 0.32, 0.62);   // capsule purple, dimmed
   vec3 col = base * (0.38 + 0.85 * vLight);
-  // film grain, animated, so the surface has tooth instead of plastic flatness
-  col += (hash(gl_FragCoord.xy + fract(uTime) * 61.7) - 0.5) * 0.045;
+  // surface tooth; the full-frame film grain is a separate pass
+  col += (hash(gl_FragCoord.xy + fract(uTime) * 61.7) - 0.5) * 0.03;
   // fade the far rim out so the burst dissolves instead of hard-stopping
   float fade = 1.0 - smoothstep(0.72, 1.05, vR);
   outColor = vec4(col * fade, fade);
+}`;
+
+// full-frame film grain: an attributeless fullscreen triangle over the
+// whole canvas, so the void between slats has the same tooth as the slats
+const GRAIN_VERT = `#version 300 es
+void main() {
+  vec2 p = vec2(gl_VertexID == 1 ? 3.0 : -1.0, gl_VertexID == 2 ? 3.0 : -1.0);
+  gl_Position = vec4(p, 0.0, 1.0);
+}`;
+
+const GRAIN_FRAG = `#version 300 es
+precision highp float;
+uniform float uTime;
+out vec4 outColor;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+void main() {
+  float g = hash(gl_FragCoord.xy + fract(uTime * 1.13) * 47.3);
+  // cool-toned speckle, alpha-weighted so it reads as grain, not fog
+  outColor = vec4(vec3(0.62, 0.64, 0.78), g * g * 0.085);
 }`;
 
 const rand = (i: number, salt: number): number => {
@@ -109,24 +137,27 @@ function boxGeometry(): { pos: Float32Array; nrm: Float32Array } {
   return { pos: new Float32Array(p), nrm: new Float32Array(n) };
 }
 
-const COUNT = 620;
+const COUNT = 380;
 
-function instanceData(): { seed: Float32Array; dim: Float32Array } {
+function instanceData(): { seed: Float32Array; dim: Float32Array; layer: Float32Array } {
   const seed = new Float32Array(COUNT * 4);
   const dim = new Float32Array(COUNT * 4);
+  const layer = new Float32Array(COUNT);
   for (let i = 0; i < COUNT; i++) {
     const band = rand(i, 11);
     seed[i * 4] = rand(i, 1) * Math.PI * 2;
     seed[i * 4 + 1] = 1.05 + band * 1.35; // start radius
-    seed[i * 4 + 2] = 0.5 + rand(i, 3) * 1.7 * (0.45 + band * 0.55); // length
+    seed[i * 4 + 2] = 0.6 + rand(i, 3) * 1.8 * (0.45 + band * 0.55); // length
     seed[i * 4 + 3] = rand(i, 4) * Math.PI * 2; // phase
-    dim[i * 4] = 0.028 + rand(i, 5) * 0.05; // width
-    dim[i * 4 + 1] = 0.028 + rand(i, 6) * 0.05; // thickness
+    // planks, not sticks: wide in the disc plane, thin through it
+    dim[i * 4] = 0.06 + rand(i, 5) * 0.09; // width
+    dim[i * 4 + 1] = 0.012 + rand(i, 6) * 0.012; // thickness
     dim[i * 4 + 2] = rand(i, 7); // shade jitter
     const a = rand(i, 8);
     dim[i * 4 + 3] = a > 0.955 ? 2 : a > 0.87 ? 1 : 0; // sparse accents
+    layer[i] = Math.floor(rand(i, 9) * 3); // depth level
   }
-  return { seed, dim };
+  return { seed, dim, layer };
 }
 
 function perspective(fovy: number, aspect: number, near: number, far: number): Float32Array {
@@ -194,11 +225,20 @@ export function startBurst(
   attach('aNormal', geo.nrm, 3, 0);
   attach('aSeed', inst.seed, 4, 1);
   attach('aDim', inst.dim, 4, 1);
+  attach('aLayer', inst.layer, 1, 1);
 
   const uVP = gl.getUniformLocation(prog, 'uVP');
   const uTilt = gl.getUniformLocation(prog, 'uTilt');
   const uCenter = gl.getUniformLocation(prog, 'uCenter');
   const uTime = gl.getUniformLocation(prog, 'uTime');
+
+  const grainProg = gl.createProgram()!;
+  gl.attachShader(grainProg, compile(gl, gl.VERTEX_SHADER, GRAIN_VERT));
+  gl.attachShader(grainProg, compile(gl, gl.FRAGMENT_SHADER, GRAIN_FRAG));
+  gl.linkProgram(grainProg);
+  const grainOk = gl.getProgramParameter(grainProg, gl.LINK_STATUS) as boolean;
+  const uGrainTime = grainOk ? gl.getUniformLocation(grainProg, 'uTime') : null;
+  const grainVao = gl.createVertexArray(); // empty: the triangle is attributeless
 
   // gentle tilt so the slats show their side faces (the 3D read)
   const tx = 0.52;
@@ -246,9 +286,20 @@ export function startBurst(
   const frame = (ms: number) => {
     if (stopped) return;
     if (visible) {
+      const t = still ? 0 : ms / 1000;
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      gl.uniform1f(uTime, still ? 0 : ms / 1000);
+      gl.useProgram(prog);
+      gl.bindVertexArray(vao);
+      gl.enable(gl.DEPTH_TEST);
+      gl.uniform1f(uTime, t);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, 30, COUNT);
+      if (grainOk) {
+        gl.useProgram(grainProg);
+        gl.bindVertexArray(grainVao);
+        gl.disable(gl.DEPTH_TEST);
+        gl.uniform1f(uGrainTime, t);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
       if (still) return; // one composed frame, then rest
     }
     raf = requestAnimationFrame(frame);
