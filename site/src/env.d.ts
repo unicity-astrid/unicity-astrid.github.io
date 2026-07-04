@@ -16,10 +16,23 @@ declare module 'kernel-web' {
     subscribe(pattern: string, cb: (topic: string, json: string) => void): void;
     grant(principal: string, resource: string, perm: string): Promise<string>;
     check(principal: string, resource: string, perm: string): Promise<boolean>;
-    /** absent until the astrid-audit wasm fix lands */
     auditLen?(): Promise<bigint>;
     auditTail?(n: number): Promise<string>;
     eventsRouted(): bigint;
+    /** phase-3 playground surface; absent on older pkg builds */
+    guestKvGet?(principal: string, ns: string, key: string): Promise<string | undefined>;
+    guestKvSet?(principal: string, ns: string, key: string, val: string): Promise<void>;
+    guestPublish?(principal: string, topic: string, json: string): Promise<void>;
+    revoke?(tokenId: string): Promise<void>;
+    hostPublish?(source: string, topic: string, json: string): void;
+    hostKvGetSync?(ns: string, key: string): string | undefined;
+    hostKvSetSync?(ns: string, key: string, val: string): void;
+    hostSubscribeQueue?(pattern: string): SyncTopicQueue;
+  }
+
+  export class SyncTopicQueue {
+    drain(): string;
+    dropped(): bigint;
   }
 
   export default init;

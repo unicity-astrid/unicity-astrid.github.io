@@ -2481,6 +2481,7 @@ dependencies = [
  "astrid-kernel",
  "astrid-runtime",
  "astrid-storage",
+ "futures",
  "getrandom 0.3.4",
  "getrandom 0.4.3",
  "js-sys",

@@ -20,10 +20,35 @@ export interface AstridBridge {
   subscribe(pattern: string, cb: (topic: string, json: string) => void): void;
   grant(principal: string, resource: string, perm: string): Promise<string>;
   check(principal: string, resource: string, perm: string): Promise<boolean>;
-  /** Absent until astrid-audit gets its wasm fix (runtime-class bug #7). */
   auditLen?(): Promise<bigint>;
   auditTail?(n: number): Promise<string>;
   eventsRouted(): bigint;
+
+  // Phase-3 playground surface. Optional until the rebuilt kernel-web pkg
+  // ships; the playground page degrades to an honest "kernel offline /
+  // bridge too old" state when these are absent.
+
+  /** Capability-checked KV read for a guest principal; throws on denial. */
+  guestKvGet?(principal: string, ns: string, key: string): Promise<string | undefined>;
+  /** Capability-checked KV write for a guest principal; throws on denial. */
+  guestKvSet?(principal: string, ns: string, key: string, val: string): Promise<void>;
+  /** Capability-checked publish, stamped with the guest as event source. */
+  guestPublish?(principal: string, topic: string, json: string): Promise<void>;
+  /** Revoke a granted token by id (present only if the store supports it). */
+  revoke?(tokenId: string): Promise<void>;
+
+  /** Synchronous shims backing the jco showcase's sync host imports. */
+  hostPublish?(source: string, topic: string, json: string): void;
+  hostKvGetSync?(ns: string, key: string): string | undefined;
+  hostKvSetSync?(ns: string, key: string, val: string): void;
+  hostSubscribeQueue?(pattern: string): SyncTopicQueue;
+}
+
+/** Drainable queue over a real bus subscription (sync recv for jco guests). */
+export interface SyncTopicQueue {
+  /** JSON array `[{"topic": ..., "data": ...}]`, oldest first; clears the queue. */
+  drain(): string;
+  dropped(): bigint;
 }
 
 export type KernelStatus = 'booting' | 'online' | 'offline';

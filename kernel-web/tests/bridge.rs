@@ -7,7 +7,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kernel_web::AstridWeb;
+use kernel_web::{AstridWeb, SyncTopicQueue};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
@@ -17,6 +17,19 @@ use wasm_bindgen_test::wasm_bindgen_test;
 /// resolved promise drains one microtask turn without any timer dependency.
 async fn tick() {
     let _ = JsFuture::from(js_sys::Promise::resolve(&JsValue::UNDEFINED)).await;
+}
+
+/// Tick the microtask queue `tries` times so the queue's spawn_local pump can
+/// deliver all buffered events, then drain once and return the parsed JSON
+/// array. `drain` is destructive, so we tick generously up front rather than
+/// poll-then-drain in a loop. All events are already buffered in the broadcast
+/// channel before the first tick, so the pump drains them well within `tries`.
+async fn drain_after_ticks(queue: &SyncTopicQueue, tries: usize) -> serde_json::Value {
+    for _ in 0..tries {
+        tick().await;
+    }
+    let json = queue.drain();
+    serde_json::from_str(&json).expect("drain must yield a JSON array")
 }
 
 #[wasm_bindgen_test]
@@ -128,6 +141,163 @@ async fn bridge_drives_the_real_kernel() -> Result<(), JsValue> {
     assert!(
         actions.contains(&"approval_denied"),
         "denied checks must land approval_denied: {actions:?}"
+    );
+
+    Ok(())
+}
+
+#[wasm_bindgen_test]
+async fn guest_mediation_enforces_and_audits() -> Result<(), JsValue> {
+    let web = AstridWeb::boot().await?;
+
+    // --- ungranted guest KV write is DENIED, and the denial lands on chain ---
+    let before = web.audit_len().await?;
+    let denied = web
+        .guest_kv_set(
+            "guest-notes".into(),
+            "guest.notes".into(),
+            "draft".into(),
+            "hello".into(),
+        )
+        .await;
+    assert!(denied.is_err(), "ungranted guest write must be denied");
+    let after = web.audit_len().await?;
+    assert!(
+        after > before,
+        "denial must grow the audit chain: {before} -> {after}"
+    );
+
+    // --- grant Write (for set) AND Read (for get) on kv:guest.notes, then the
+    // mediated round-trip works. Enforcement is per-permission: a Write grant
+    // alone does NOT satisfy the Read that `guest_kv_get` requires. ---
+    web.grant(
+        "guest-notes".into(),
+        "kv:guest.notes".into(),
+        "write".into(),
+    )
+    .await?;
+    web.grant("guest-notes".into(), "kv:guest.notes".into(), "read".into())
+        .await?;
+    web.guest_kv_set(
+        "guest-notes".into(),
+        "guest.notes".into(),
+        "draft".into(),
+        "hello".into(),
+    )
+    .await?;
+    let got = web
+        .guest_kv_get("guest-notes".into(), "guest.notes".into(), "draft".into())
+        .await?;
+    assert_eq!(got.as_deref(), Some("hello"), "guest KV round-trip mismatch");
+
+    // --- guest publish is DENIED without a topic capability ---
+    let pub_denied = web
+        .guest_publish(
+            "guest-notes".into(),
+            "site.v1.guest.out".into(),
+            r#"{"note":"hi"}"#.into(),
+        )
+        .await;
+    assert!(pub_denied.is_err(), "ungranted guest publish must be denied");
+
+    // --- grant Write on topic:site.v1.guest.out, subscribe, publish, drain ---
+    let queue = web.host_subscribe_queue("site.v1.guest.*".into());
+    web.grant(
+        "guest-notes".into(),
+        "topic:site.v1.guest.out".into(),
+        "write".into(),
+    )
+    .await?;
+    web.guest_publish(
+        "guest-notes".into(),
+        "site.v1.guest.out".into(),
+        r#"{"note":"hi"}"#.into(),
+    )
+    .await?;
+
+    let entries = drain_after_ticks(&queue, 200).await;
+    let arr = entries.as_array().expect("drain must be a JSON array");
+    assert_eq!(arr.len(), 1, "queue should hold exactly the guest event");
+    assert_eq!(
+        arr[0]["topic"].as_str(),
+        Some("site.v1.guest.out"),
+        "unexpected drained topic"
+    );
+    assert_eq!(
+        arr[0]["data"]["note"].as_str(),
+        Some("hi"),
+        "unexpected drained payload: {entries}"
+    );
+
+    Ok(())
+}
+
+#[wasm_bindgen_test]
+async fn sync_host_shims_round_trip_and_bound() -> Result<(), JsValue> {
+    let web = AstridWeb::boot().await?;
+
+    // --- synchronous KV round-trip via now_or_never (MemoryKvStore) ---
+    web.host_kv_set_sync("sys".into(), "cfg".into(), "on".into())?;
+    let got = web.host_kv_get_sync("sys".into(), "cfg".into())?;
+    assert_eq!(got.as_deref(), Some("on"), "sync KV round-trip mismatch");
+    let absent = web.host_kv_get_sync("sys".into(), "missing".into())?;
+    assert_eq!(absent, None, "absent sync key should be None");
+
+    // --- sync publish lands in a queue created before the publish ---
+    let queue = web.host_subscribe_queue("host.demo.*".into());
+    web.host_publish(
+        "prompt-builder".into(),
+        "host.demo.ready".into(),
+        r#"{"phase":1}"#.into(),
+    )?;
+    let entries = drain_after_ticks(&queue, 200).await;
+    let arr = entries.as_array().expect("drain must be a JSON array");
+    assert_eq!(arr.len(), 1, "sync publish should reach the queue");
+    assert_eq!(arr[0]["topic"].as_str(), Some("host.demo.ready"));
+    assert_eq!(arr[0]["data"]["phase"].as_i64(), Some(1));
+
+    // --- queue bounding: 300 in, 256 retained, 44 dropped (oldest first) ---
+    let bounded = web.host_subscribe_queue("host.flood.*".into());
+    for i in 0..300 {
+        web.host_publish(
+            "prompt-builder".into(),
+            "host.flood.tick".into(),
+            format!(r#"{{"i":{i}}}"#),
+        )?;
+    }
+    let flood = drain_after_ticks(&bounded, 300).await;
+    let flood_arr = flood.as_array().expect("drain must be a JSON array");
+    assert_eq!(flood_arr.len(), 256, "queue must cap at 256 entries");
+    assert_eq!(bounded.dropped(), 44, "44 oldest entries must be dropped");
+    // Oldest survivor is index 44 (0..43 were dropped).
+    assert_eq!(
+        flood_arr[0]["data"]["i"].as_i64(),
+        Some(44),
+        "oldest retained entry should be i=44"
+    );
+
+    Ok(())
+}
+
+#[wasm_bindgen_test]
+async fn revoke_removes_the_capability() -> Result<(), JsValue> {
+    let web = AstridWeb::boot().await?;
+
+    let token_id = web
+        .grant("carol".into(), "notes://carol".into(), "write".into())
+        .await?;
+    assert!(
+        web.check("carol".into(), "notes://carol".into(), "write".into())
+            .await?,
+        "check should allow the freshly granted triple"
+    );
+
+    web.revoke(token_id).await?;
+
+    assert!(
+        !web.check("carol".into(), "notes://carol".into(), "write".into())
+            .await?,
+        "check must deny after revocation"
     );
 
     Ok(())

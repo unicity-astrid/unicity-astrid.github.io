@@ -1,0 +1,550 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  title="Playground — build a capsule in your tab"
+  description="Write a capsule, install it against the real Astrid kernel running in your browser, and watch real capability checks allow and deny it."
+>
+  <main class="pg wrap">
+    <header class="pg-head">
+      <p class="eyebrow">playground</p>
+      <h1>Build a capsule. Install it. Right here.</h1>
+      <p class="prose dim pg-lede">
+        This page runs the real Astrid kernel in your tab. Write a small
+        capsule below, tick the powers you want it to have, and install it.
+        Every power it uses goes through a real capability check, and every
+        decision lands on the real audit chain. Untick a box and watch the
+        kernel say no.
+      </p>
+      <p class="mono pg-honesty" data-dock="playground">
+        Honest framing: real capsules ship as sandboxed WebAssembly. This
+        editor lets you author one in JavaScript against the same capability
+        gate. The checks, grants, denials, and audit entries are the real thing.
+      </p>
+    </header>
+
+    <div class="pg-offline mono" id="pg-offline" hidden>
+      ○ kernel offline (static mode). The playground needs the in-tab kernel;
+      try a current browser.
+    </div>
+
+    <nav class="pg-tabs mono" aria-label="Playground mode">
+      <button class="pg-tab is-active" id="tab-author" type="button">write your own</button>
+      <button class="pg-tab" id="tab-showcase" type="button">run a real capsule</button>
+    </nav>
+
+    <!-- ============ author panel ============ -->
+    <section class="pg-panel" id="panel-author">
+      <div class="pg-grid">
+        <div class="pg-left">
+          <div class="card pg-manifest">
+            <p class="mono pg-card-title">manifest</p>
+            <label class="pg-field">
+              <span class="mono dim">name</span>
+              <input id="m-name" class="mono" type="text" value="notes" maxlength="32" spellcheck="false" />
+            </label>
+            <label class="pg-field">
+              <span class="mono dim">subscribes to</span>
+              <input id="m-subs" class="mono" type="text" value="site.v1.demo.*" spellcheck="false" />
+            </label>
+            <fieldset class="pg-caps">
+              <legend class="mono dim">capabilities it may hold</legend>
+              <label class="pg-cap"><input type="checkbox" id="c-kv-read" checked /> <span class="mono">read its own storage</span></label>
+              <label class="pg-cap"><input type="checkbox" id="c-kv-write" checked /> <span class="mono">write its own storage</span></label>
+              <label class="pg-cap"><input type="checkbox" id="c-pub" checked /> <span class="mono">publish to site.v1.guest.out</span></label>
+            </fieldset>
+            <p class="pg-hint dim">
+              Untick one, install, and the code below still tries to use it.
+              The denial you see is the kernel's, not the page's.
+            </p>
+            <button class="btn btn-primary" id="btn-install" type="button" disabled>install capsule</button>
+          </div>
+          <div class="card pg-editor-card">
+            <p class="mono pg-card-title">capsule source</p>
+            <div id="editor" class="pg-editor"></div>
+          </div>
+        </div>
+
+        <div class="pg-right">
+          <div class="card pg-rig">
+            <p class="mono pg-card-title">live rig <span id="rig-state" class="dim">nothing installed</span></p>
+            <ul class="pg-feed mono" id="guest-feed" aria-live="polite"></ul>
+          </div>
+          <div class="card pg-rig">
+            <p class="mono pg-card-title">bus · site.v1.guest.*</p>
+            <ul class="pg-feed mono" id="bus-feed" aria-live="polite"></ul>
+          </div>
+          <div class="card pg-rig">
+            <p class="mono pg-card-title" id="ledger-title">audit ledger</p>
+            <ul class="pg-feed mono pg-ledger" id="ledger"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ showcase panel ============ -->
+    <section class="pg-panel" id="panel-showcase" hidden>
+      <div class="pg-grid">
+        <div class="pg-left">
+          <div class="card">
+            <p class="mono pg-card-title">prompt-builder, the real one</p>
+            <p class="prose dim">
+              This is not a demo written for the website. It is the actual
+              prompt-builder capsule from the Astrid capsule fleet, the same
+              WebAssembly that assembles prompts in production, transpiled for
+              the browser and wired to the live kernel in this tab. Its
+              publishes land on the real bus. Its storage is the real kernel
+              KV. Open devtools if you want to check.
+            </p>
+            <button class="btn btn-primary" id="btn-showcase" type="button" disabled>run the capsule</button>
+            <p class="mono pg-verdict" id="showcase-verdict"></p>
+          </div>
+          <div class="card pg-rig">
+            <p class="mono pg-card-title">assembled response · prompt_builder.v1.response.assemble</p>
+            <pre class="pg-out mono" id="showcase-out">(run it)</pre>
+          </div>
+        </div>
+        <div class="pg-right">
+          <div class="card pg-rig">
+            <p class="mono pg-card-title">host-call journal</p>
+            <ul class="pg-feed mono" id="showcase-journal"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    import { EditorView, basicSetup } from 'codemirror';
+    import { javascript } from '@codemirror/lang-javascript';
+    import { oneDark } from '@codemirror/theme-one-dark';
+    import { onKernel, type AstridBridge } from '../scripts/kernel';
+    import { installGuest, type GuestHandle, type GuestLogEntry } from '../scripts/guest-runtime';
+
+    const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+    // ---- tabs ----
+    const tabAuthor = $('tab-author');
+    const tabShowcase = $('tab-showcase');
+    const panelAuthor = $('panel-author');
+    const panelShowcase = $('panel-showcase');
+    function pick(tab: 'author' | 'showcase'): void {
+      tabAuthor.classList.toggle('is-active', tab === 'author');
+      tabShowcase.classList.toggle('is-active', tab === 'showcase');
+      panelAuthor.hidden = tab !== 'author';
+      panelShowcase.hidden = tab !== 'showcase';
+    }
+    tabAuthor.addEventListener('click', () => pick('author'));
+    tabShowcase.addEventListener('click', () => pick('showcase'));
+
+    // ---- editor ----
+    const DEFAULT_SOURCE = `// Your capsule. It runs in a worker in this tab,
+// against the real kernel. It receives every event
+// matching your subscriptions.
+
+async function on_event(topic, payload) {
+  astrid.log('saw ' + topic);
+
+  // Its own storage, behind a real capability check.
+  const seen = Number(await astrid.kv.get('seen') ?? 0) + 1;
+  await astrid.kv.set('seen', seen);
+
+  // Tell the bus. This lands as a real event, attributed to you.
+  await astrid.publish('site.v1.guest.out', { topic, seen });
+}
+`;
+
+    const editor = new EditorView({
+      parent: $('editor'),
+      doc: DEFAULT_SOURCE,
+      extensions: [basicSetup, javascript(), oneDark, EditorView.lineWrapping],
+    });
+
+    // ---- feeds ----
+    const FEED_MAX = 40;
+    function push(listId: string, cls: string, text: string): void {
+      const ul = $(listId) as unknown as HTMLUListElement;
+      const li = document.createElement('li');
+      li.className = cls;
+      li.textContent = text;
+      ul.append(li);
+      while (ul.children.length > FEED_MAX) ul.firstChild?.remove();
+      ul.scrollTop = ul.scrollHeight;
+    }
+    const stamp = (d: Date) => d.toLocaleTimeString(undefined, { hour12: false });
+
+    function onGuestLog(entry: GuestLogEntry): void {
+      push('guest-feed', `k-${entry.kind}`, `${stamp(entry.at)} ${entry.text}`);
+    }
+
+    // ---- kernel wiring ----
+    let bridge: AstridBridge | null = null;
+    let guest: GuestHandle | null = null;
+    let trafficTimer: ReturnType<typeof setInterval> | null = null;
+    let tick = 0;
+    let busWired = false;
+
+    const btnInstall = $('btn-install') as HTMLButtonElement;
+    const btnShowcase = $('btn-showcase') as HTMLButtonElement;
+
+    onKernel((status, b) => {
+      $('pg-offline').hidden = status !== 'offline';
+      if (status !== 'online' || !b) return;
+      bridge = b;
+      const hasGuestApi = typeof b.guestKvSet === 'function';
+      const hasShims = typeof b.hostSubscribeQueue === 'function';
+      btnInstall.disabled = !hasGuestApi;
+      btnShowcase.disabled = !hasShims;
+      if (!hasGuestApi) {
+        push('guest-feed', 'k-error', 'bridge predates the playground surface; rebuild kernel-web');
+      }
+      if (!busWired) {
+        busWired = true;
+        b.subscribe('site.v1.guest.*', (topic, json) => {
+          push('bus-feed', 'k-host', `${topic} ${json}`);
+        });
+      }
+      void refreshLedger();
+    });
+
+    async function refreshLedger(): Promise<void> {
+      if (!bridge?.auditTail || !bridge.auditLen) return;
+      try {
+        const [tailJson, len] = await Promise.all([bridge.auditTail(8), bridge.auditLen()]);
+        $('ledger-title').innerHTML =
+          `audit ledger <span class="dim">${len} entries, hash-linked</span>`;
+        const ul = $('ledger') as unknown as HTMLUListElement;
+        ul.replaceChildren();
+        const entries = JSON.parse(tailJson) as { hash: string; action: string }[];
+        for (const e of entries) {
+          const li = document.createElement('li');
+          li.className = e.action.includes('denied') ? 'k-deny' : 'k-host';
+          li.textContent = `${e.hash.slice(0, 12)}… ${e.action}`;
+          ul.append(li);
+        }
+      } catch (err) {
+        console.warn('[astrid] ledger refresh failed:', err);
+      }
+    }
+
+    // ---- install / uninstall ----
+    btnInstall.addEventListener('click', () => void toggleInstall());
+    async function toggleInstall(): Promise<void> {
+      if (!bridge) return;
+      btnInstall.disabled = true;
+      try {
+        if (guest) {
+          await stopGuest();
+        } else {
+          const name = ($('m-name') as HTMLInputElement).value.trim();
+          const subs = ($('m-subs') as HTMLInputElement).value
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+          guest = await installGuest(
+            bridge,
+            {
+              name,
+              subscriptions: subs,
+              caps: {
+                kvRead: ($('c-kv-read') as HTMLInputElement).checked,
+                kvWrite: ($('c-kv-write') as HTMLInputElement).checked,
+                publishTopics: ($('c-pub') as HTMLInputElement).checked
+                  ? ['site.v1.guest.out']
+                  : [],
+              },
+            },
+            editor.state.doc.toString(),
+            (e) => {
+              onGuestLog(e);
+              if (e.kind === 'deny' || e.kind === 'host') void refreshLedger();
+            },
+          );
+          $('rig-state').textContent = `${guest.principal} running`;
+          btnInstall.textContent = 'uninstall capsule';
+          // Page-owned traffic generator: real publishes the guest can react to.
+          trafficTimer = setInterval(() => {
+            void bridge?.publish('site.v1.demo.tick', JSON.stringify({ n: ++tick }));
+          }, 2500);
+        }
+      } catch (err) {
+        onGuestLog({
+          at: new Date(),
+          kind: 'error',
+          text: err instanceof Error ? err.message : String(err),
+        });
+        if (guest) await stopGuest();
+      } finally {
+        btnInstall.disabled = false;
+      }
+    }
+    async function stopGuest(): Promise<void> {
+      if (trafficTimer) clearInterval(trafficTimer);
+      trafficTimer = null;
+      await guest?.uninstall();
+      guest = null;
+      $('rig-state').textContent = 'nothing installed';
+      btnInstall.textContent = 'install capsule';
+      void refreshLedger();
+    }
+
+    // ---- showcase ----
+    // One page-lifetime watcher for the capsule's response event; the bridge
+    // subscription pump has no unsubscribe, so per-run subscriptions would
+    // accumulate.
+    let assembled: string | null = null;
+    let responseWatcher = false;
+    btnShowcase.addEventListener('click', () => void runShowcase());
+    async function runShowcase(): Promise<void> {
+      if (!bridge) return;
+      btnShowcase.disabled = true;
+      const verdict = $('showcase-verdict');
+      verdict.textContent = 'instantiating the component…';
+      try {
+        const [{ instantiate }, { createLiveHost }] = await Promise.all([
+          import('../showcase/prompt-builder.component.js'),
+          import('../scripts/showcase-host'),
+        ]);
+        const { imports, journal } = createLiveHost(bridge);
+        const getCoreModule = async (path: string) =>
+          WebAssembly.compile(await (await fetch(`/showcase/${path}`)).arrayBuffer());
+
+        if (!responseWatcher) {
+          responseWatcher = true;
+          bridge.subscribe('prompt_builder.v1.response.assemble', (_t, json) => {
+            assembled = json;
+          });
+        }
+        assembled = null;
+
+        const root = (await instantiate(getCoreModule, imports as never)) as {
+          astridHookTrigger(hook: string, payload: Uint8Array): { action?: string } | undefined;
+        };
+        const request = {
+          system_prompt: 'You are Astrid, a secure agent runtime assistant.',
+          request_id: 'playground-req-0001',
+          model: 'claude-fable-5',
+          provider: 'anthropic',
+          messages: [{ role: 'user', content: 'What can you do?' }],
+        };
+        const result = root.astridHookTrigger(
+          'handle_assemble',
+          new TextEncoder().encode(JSON.stringify(request)),
+        );
+
+        const ul = $('showcase-journal') as unknown as HTMLUListElement;
+        ul.replaceChildren();
+        for (const c of journal) {
+          const li = document.createElement('li');
+          li.className = 'k-host';
+          li.textContent = `#${c.seq} ${c.iface.replace('astrid:', '')}#${c.fn} ${c.detail}`;
+          ul.append(li);
+        }
+
+        // Bus delivery rides the microtask queue; give it one frame.
+        await new Promise((r) => setTimeout(r, 50));
+        $('showcase-out').textContent = assembled
+          ? JSON.stringify(JSON.parse(assembled), null, 2)
+          : '(no response event observed)';
+        verdict.textContent = result?.action
+          ? `capsule returned "${result.action}" · ${journal.length} real host calls`
+          : 'capsule ran but returned nothing recognizable';
+      } catch (err) {
+        verdict.textContent = `failed: ${err instanceof Error ? err.message : String(err)}`;
+        console.error('[astrid] showcase failed:', err);
+      } finally {
+        btnShowcase.disabled = false;
+      }
+    }
+  </script>
+
+  <style>
+    .pg {
+      padding-block: calc(var(--s-6) + 2rem) var(--s-7);
+    }
+
+    .pg-head h1 {
+      font-family: var(--font-display);
+      font-size: var(--step-4);
+      letter-spacing: -0.02em;
+      margin-block: var(--s-2) var(--s-3);
+      max-width: 20ch;
+      text-wrap: balance;
+    }
+
+    .pg-lede {
+      max-width: 62ch;
+    }
+
+    .pg-honesty {
+      margin-top: var(--s-3);
+      max-width: 70ch;
+      font-size: var(--step--1);
+      color: var(--text-dim);
+      border-left: 2px solid var(--capsule);
+      padding-left: var(--s-2);
+    }
+
+    .pg-offline {
+      margin-top: var(--s-4);
+      color: var(--deny);
+    }
+
+    .pg-tabs {
+      display: flex;
+      gap: var(--s-2);
+      margin-block: var(--s-5) var(--s-4);
+    }
+
+    .pg-tab {
+      background: none;
+      border: 1px solid var(--line);
+      color: var(--text-dim);
+      font: inherit;
+      font-size: var(--step--1);
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .pg-tab.is-active {
+      color: var(--text);
+      border-color: var(--capsule);
+    }
+
+    .pg-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      gap: var(--s-3);
+      align-items: start;
+    }
+
+    .pg-left,
+    .pg-right {
+      display: grid;
+      gap: var(--s-3);
+    }
+
+    .pg-card-title {
+      font-size: var(--step--1);
+      color: var(--text);
+      margin-bottom: var(--s-2);
+      display: flex;
+      justify-content: space-between;
+      gap: var(--s-2);
+    }
+
+    .pg-field {
+      display: grid;
+      gap: 0.35rem;
+      margin-bottom: var(--s-2);
+      font-size: var(--step--1);
+    }
+
+    .pg-field input {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--text);
+      font: inherit;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .pg-field input:focus-visible {
+      outline: 2px solid var(--capsule);
+      outline-offset: 1px;
+    }
+
+    .pg-caps {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: var(--s-2);
+      margin-block: var(--s-2);
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .pg-caps legend {
+      padding-inline: 0.4rem;
+      font-size: var(--step--1);
+    }
+
+    .pg-cap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: var(--step--1);
+      cursor: pointer;
+    }
+
+    .pg-cap input {
+      accent-color: var(--grant);
+    }
+
+    .pg-hint {
+      font-size: var(--step--1);
+      margin-bottom: var(--s-2);
+    }
+
+    .pg-editor {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    .pg-editor :global(.cm-editor) {
+      background: var(--bg);
+      min-height: 18rem;
+    }
+
+    .pg-editor :global(.cm-editor.cm-focused) {
+      outline: 2px solid var(--capsule);
+    }
+
+    .pg-feed {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      font-size: var(--step--1);
+      max-height: 14rem;
+      overflow-y: auto;
+      display: grid;
+      gap: 0.3rem;
+    }
+
+    .pg-feed :global(li) {
+      overflow-wrap: anywhere;
+    }
+
+    .pg-feed :global(.k-lifecycle) { color: var(--text-dim); }
+    .pg-feed :global(.k-log) { color: var(--text); }
+    .pg-feed :global(.k-host) { color: var(--bus); }
+    .pg-feed :global(.k-deny) { color: var(--deny); }
+    .pg-feed :global(.k-error) { color: var(--deny); font-weight: 500; }
+
+    .pg-ledger :global(.k-host) { color: var(--audit); }
+
+    .pg-out {
+      font-size: var(--step--1);
+      max-height: 20rem;
+      overflow: auto;
+      white-space: pre-wrap;
+      margin: 0;
+    }
+
+    .pg-verdict {
+      margin-top: var(--s-2);
+      font-size: var(--step--1);
+      color: var(--bus);
+      min-height: 1.2em;
+    }
+
+    @media (max-width: 900px) {
+      .pg-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</Base>

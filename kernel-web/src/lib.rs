@@ -11,27 +11,42 @@
 //!   kernel's [`CapabilityStore`].
 //! - `events_routed` counts every event the kernel routes, via a crate-owned
 //!   subscribe-everything pump started at boot.
-//!
-//! The audit surface (`audit_len`/`audit_tail`) is deliberately absent: the
-//! real `AuditLog` storage panics on `wasm32-unknown-unknown` (see the note on
-//! the impl block).
+//! - `audit_len`/`audit_tail` read the real signed audit chain — the
+//!   genuinely-async audit storage resolves on `wasm32-unknown-unknown` (the
+//!   old sync-over-async surface panicked here; that regression is fixed).
+//! - The guest mediation surface (`guest_kv_get`/`guest_kv_set`/`guest_publish`,
+//!   plus `revoke`) is the playground's ENFORCEMENT path: each op checks the
+//!   real `CapabilityStore` first, lands every allow/deny decision on the real
+//!   audit chain, and throws on denial — the thrown error is the enforcement.
+//! - The synchronous host shims (`host_publish`/`host_kv_get_sync`/
+//!   `host_kv_set_sync`/`host_subscribe_queue`) back a jco-transpiled capsule
+//!   whose `astrid:*` host imports are SYNCHRONOUS; they drive the same live
+//!   kernel bus/KV without an `.await`, with a drainable `SyncTopicQueue` for
+//!   the sync `Subscription.recv` import.
 //!
 //! [`KvStore`]: astrid_storage::KvStore
 //! [`EventBus`]: astrid_events::EventBus
 //! [`CapabilityStore`]: astrid_capabilities::CapabilityStore
 
-use std::collections::HashMap;
+use std::cell::RefCell;
+use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use astrid_capabilities::{AuditEntryId, CapabilityToken, ResourcePattern, TokenScope};
 use astrid_core::dirs::AstridHome;
 use astrid_core::session_token::SessionToken;
-use astrid_core::{Permission, PrincipalId, SessionId};
+use astrid_core::{Permission, PrincipalId, SessionId, TokenId};
 use astrid_events::{AstridEvent, EventMetadata, TopicMatcher};
 use astrid_kernel::{Kernel, KernelResources};
+use futures::FutureExt;
 use wasm_bindgen::prelude::*;
+
+/// Maximum entries held by a [`SyncTopicQueue`] before it drops the oldest
+/// (mirrors the real bus's lag-drop semantics).
+const SYNC_QUEUE_CAP: usize = 256;
 
 /// Git commit of the `core/` checkout this bridge was compiled from, injected
 /// by `build.rs` (falls back to `"unknown"` when git is unavailable).
@@ -99,12 +114,12 @@ impl AstridWeb {
         let mut all = kernel.event_bus.subscribe();
         let counter = Arc::clone(&events_routed);
         // Detach the pump: dropping the handle does NOT cancel the task (it
-        // keeps running on the microtask queue), so ignoring it is correct.
-        let _ = astrid_runtime::spawn(async move {
+        // keeps running on the microtask queue), so dropping it is correct.
+        drop(astrid_runtime::spawn(async move {
             while let Some(_event) = all.recv().await {
                 counter.fetch_add(1, Ordering::Relaxed);
             }
-        });
+        }));
 
         Ok(AstridWeb {
             kernel,
@@ -198,21 +213,7 @@ impl AstridWeb {
         let mut rx = self.kernel.event_bus.subscribe();
         wasm_bindgen_futures::spawn_local(async move {
             while let Some(event) = rx.recv().await {
-                let (topic, data_json) = match &*event {
-                    AstridEvent::Custom { name, data, .. } => (name.clone(), data.to_string()),
-                    other => {
-                        let value = serde_json::to_value(other)
-                            .unwrap_or_else(|_| serde_json::json!({}));
-                        let kind = value
-                            .get("type")
-                            .and_then(serde_json::Value::as_str)
-                            .unwrap_or("event")
-                            .to_string();
-                        let json = serde_json::to_string(&value)
-                            .unwrap_or_else(|_| "{}".to_string());
-                        (kind, json)
-                    }
-                };
+                let (topic, data_json) = extract_topic_data(&event);
 
                 if !matcher.matches_topic(&topic) {
                     continue;
@@ -433,6 +434,400 @@ impl AstridWeb {
     #[must_use]
     pub fn events_routed(&self) -> u64 {
         self.events_routed.load(Ordering::Relaxed)
+    }
+
+    // --- guest mediation surface -----------------------------------------
+    // The playground lets a visitor author a small JS "guest capsule" with a
+    // name (its principal), subscriptions, and requested capabilities minted
+    // via `grant`. These methods are the ENFORCEMENT path: each mediated op
+    // checks the real `CapabilityStore` first, lands the allow/deny decision
+    // on the real audit chain, and throws on denial. The thrown `JsError` is
+    // the enforcement the playground UI surfaces.
+
+    /// Read a guest KV value under `(ns, key)`, mediated by the guest's real
+    /// `Read` capability for resource `kv:<ns>`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `JsError` for an invalid principal, if the guest holds no
+    /// covering capability (denial), or if the KV read fails / is not UTF-8.
+    #[wasm_bindgen(js_name = guestKvGet)]
+    pub async fn guest_kv_get(
+        &self,
+        principal: String,
+        ns: String,
+        key: String,
+    ) -> Result<Option<String>, JsError> {
+        self.guest_authorize(&principal, format!("kv:{ns}"), Permission::Read, "read")
+            .await?;
+        let bytes = self
+            .kernel
+            .kv
+            .get(&ns, &key)
+            .await
+            .map_err(|e| JsError::new(&format!("kv get failed: {e}")))?;
+        match bytes {
+            None => Ok(None),
+            Some(b) => String::from_utf8(b)
+                .map(Some)
+                .map_err(|e| JsError::new(&format!("kv value is not valid UTF-8: {e}"))),
+        }
+    }
+
+    /// Store a guest KV value under `(ns, key)`, mediated by the guest's real
+    /// `Write` capability for resource `kv:<ns>`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `JsError` for an invalid principal, if the guest holds no
+    /// covering capability (denial), or if the KV write fails.
+    #[wasm_bindgen(js_name = guestKvSet)]
+    pub async fn guest_kv_set(
+        &self,
+        principal: String,
+        ns: String,
+        key: String,
+        val: String,
+    ) -> Result<(), JsError> {
+        self.guest_authorize(&principal, format!("kv:{ns}"), Permission::Write, "write")
+            .await?;
+        self.kernel
+            .kv
+            .set(&ns, &key, val.into_bytes())
+            .await
+            .map_err(|e| JsError::new(&format!("kv set failed: {e}")))
+    }
+
+    /// Publish a guest `Custom` event, mediated by the guest's real `Write`
+    /// capability for resource `topic:<topic>`.
+    ///
+    /// On allow the event is attributed to the guest principal (not
+    /// `"astrid-web"`), so the audited source is the guest itself.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `JsError` for an invalid principal, if the guest holds no
+    /// covering capability (denial), or if `json` is not valid JSON.
+    #[wasm_bindgen(js_name = guestPublish)]
+    pub async fn guest_publish(
+        &self,
+        principal: String,
+        topic: String,
+        json: String,
+    ) -> Result<(), JsError> {
+        self.guest_authorize(
+            &principal,
+            format!("topic:{topic}"),
+            Permission::Write,
+            "write",
+        )
+        .await?;
+        let data: serde_json::Value = serde_json::from_str(&json)
+            .map_err(|e| JsError::new(&format!("publish payload is not valid JSON: {e}")))?;
+        self.kernel.event_bus.publish(AstridEvent::Custom {
+            metadata: EventMetadata::new(&principal),
+            name: topic,
+            data,
+        });
+        Ok(())
+    }
+
+    /// Revoke the capability token `token_id`, removing it from the real
+    /// `CapabilityStore` and landing a `CapabilityRevoked` entry on the audit
+    /// chain.
+    ///
+    /// `token_id` accepts the `"token:<uuid>"` string returned by `grant`
+    /// (the bare `<uuid>` is also accepted).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `JsError` for a malformed token id or a capability-store
+    /// failure.
+    pub async fn revoke(&self, token_id: String) -> Result<(), JsError> {
+        // `grant` returns `TokenId::to_string()` == `"token:<uuid>"`; strip the
+        // `Display` prefix, then deserialize the bare UUID through `TokenId`'s
+        // transparent newtype serde (no direct uuid-crate dep needed).
+        let raw = token_id.strip_prefix("token:").unwrap_or(&token_id);
+        let tid: TokenId = serde_json::from_str(&format!("\"{raw}\""))
+            .map_err(|e| JsError::new(&format!("invalid token id: {e}")))?;
+
+        self.kernel
+            .capabilities
+            .revoke(&tid)
+            .await
+            .map_err(|e| JsError::new(&format!("capability revoke failed: {e}")))?;
+
+        // Land the revocation on the real signed chain. Failure degrades to
+        // continue (the revoke already succeeded) — same fail-secure posture as
+        // the kernel's own audit paths.
+        if let Err(e) = self
+            .kernel
+            .audit_log
+            .append(
+                self.kernel.session_id.clone(),
+                astrid_audit::AuditAction::CapabilityRevoked {
+                    token_id: tid,
+                    reason: "interactive site demo revoke".to_string(),
+                },
+                astrid_audit::AuthorizationProof::NotRequired {
+                    reason: "playground guest mediation".to_string(),
+                },
+                astrid_audit::AuditOutcome::success(),
+            )
+            .await
+        {
+            web_console_warn(&format!("astrid: audit append failed for revoke: {e}"));
+        }
+
+        Ok(())
+    }
+
+    // --- synchronous host shims for the jco showcase ---------------------
+    // A real jco-transpiled capsule runs in the tab with its `astrid:*` host
+    // imports wired to this live kernel. jco host-import calls are SYNCHRONOUS,
+    // so these are non-async entry points onto the same bus/KV.
+
+    /// Synchronously publish a `Custom` event on the real bus, attributed to
+    /// `source`. Backs the `astrid:ipc/host#publish` import.
+    ///
+    /// The bus `publish` is already synchronous; only JSON parsing can fail.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `JsError` if `json` is not valid JSON.
+    #[wasm_bindgen(js_name = hostPublish)]
+    pub fn host_publish(&self, source: String, topic: String, json: String) -> Result<(), JsError> {
+        let data: serde_json::Value = serde_json::from_str(&json)
+            .map_err(|e| JsError::new(&format!("publish payload is not valid JSON: {e}")))?;
+        self.kernel.event_bus.publish(AstridEvent::Custom {
+            metadata: EventMetadata::new(&source),
+            name: topic,
+            data,
+        });
+        Ok(())
+    }
+
+    /// Synchronously read `(ns, key)` from the kernel KV. Backs the
+    /// `astrid:kv/host#kv-get` import.
+    ///
+    /// The kernel KV is the in-memory `MemoryKvStore`, whose futures have no
+    /// await points and resolve on the first poll; `now_or_never` drives that
+    /// without blocking. If the future genuinely pended it returns an honest
+    /// error rather than spinning.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `JsError` if the store pended (sync path unavailable), the KV
+    /// read fails, or the stored bytes are not valid UTF-8.
+    #[wasm_bindgen(js_name = hostKvGetSync)]
+    pub fn host_kv_get_sync(&self, ns: String, key: String) -> Result<Option<String>, JsError> {
+        let bytes = match self.kernel.kv.get(&ns, &key).now_or_never() {
+            Some(r) => r.map_err(|e| JsError::new(&format!("kv get failed: {e}")))?,
+            None => {
+                return Err(JsError::new(
+                    "sync KV path unavailable: store pended (get did not resolve on first poll)",
+                ))
+            }
+        };
+        match bytes {
+            None => Ok(None),
+            Some(b) => String::from_utf8(b)
+                .map(Some)
+                .map_err(|e| JsError::new(&format!("kv value is not valid UTF-8: {e}"))),
+        }
+    }
+
+    /// Synchronously store `(ns, key) = val` in the kernel KV. Backs the
+    /// `astrid:kv/host#kv-set` import. See [`host_kv_get_sync`] for the
+    /// `now_or_never` rationale.
+    ///
+    /// [`host_kv_get_sync`]: AstridWeb::host_kv_get_sync
+    ///
+    /// # Errors
+    ///
+    /// Returns a `JsError` if the store pended (sync path unavailable) or the
+    /// KV write fails.
+    #[wasm_bindgen(js_name = hostKvSetSync)]
+    pub fn host_kv_set_sync(&self, ns: String, key: String, val: String) -> Result<(), JsError> {
+        match self.kernel.kv.set(&ns, &key, val.into_bytes()).now_or_never() {
+            Some(r) => r.map_err(|e| JsError::new(&format!("kv set failed: {e}"))),
+            None => Err(JsError::new(
+                "sync KV path unavailable: store pended (set did not resolve on first poll)",
+            )),
+        }
+    }
+
+    /// Create a drainable [`SyncTopicQueue`] fed by the real bus for events
+    /// whose derived topic matches `pattern`. Backs the sync
+    /// `astrid:ipc/host#subscribe` + `Subscription.recv` import pair: the
+    /// capsule's synchronous `recv` drains this queue instead of awaiting.
+    ///
+    /// The queue is `Rc<RefCell<..>>` (hence `!Send`), so the pump runs on
+    /// `wasm_bindgen_futures::spawn_local` — the same reasoning as [`subscribe`]:
+    /// `astrid_runtime::spawn` demands a `Send` future the `Rc` cannot satisfy.
+    ///
+    /// [`subscribe`]: AstridWeb::subscribe
+    #[wasm_bindgen(js_name = hostSubscribeQueue)]
+    #[must_use]
+    pub fn host_subscribe_queue(&self, pattern: String) -> SyncTopicQueue {
+        let matcher = TopicMatcher::new(pattern);
+        let mut rx = self.kernel.event_bus.subscribe();
+
+        let queue: Rc<RefCell<VecDeque<(String, String)>>> = Rc::new(RefCell::new(VecDeque::new()));
+        let dropped: Rc<RefCell<u64>> = Rc::new(RefCell::new(0));
+        let pump_queue = Rc::clone(&queue);
+        let pump_dropped = Rc::clone(&dropped);
+
+        wasm_bindgen_futures::spawn_local(async move {
+            while let Some(event) = rx.recv().await {
+                let (topic, data_json) = extract_topic_data(&event);
+                if !matcher.matches_topic(&topic) {
+                    continue;
+                }
+                let mut q = pump_queue.borrow_mut();
+                // Bounded: on overflow drop the OLDEST entry and count it,
+                // mirroring the bus's lag-drop semantics.
+                if q.len() >= SYNC_QUEUE_CAP {
+                    q.pop_front();
+                    *pump_dropped.borrow_mut() += 1;
+                }
+                q.push_back((topic, data_json));
+            }
+        });
+
+        SyncTopicQueue { queue, dropped }
+    }
+
+    /// Shared enforcement core for the guest mediation surface: parse the
+    /// principal, check the real `CapabilityStore`, land the allow/deny
+    /// decision on the real audit chain (allow AND deny), and throw on denial.
+    /// Returns `Ok(())` only when the guest holds a covering capability.
+    async fn guest_authorize(
+        &self,
+        principal: &str,
+        resource: String,
+        permission: Permission,
+        perm_label: &str,
+    ) -> Result<(), JsError> {
+        let principal = PrincipalId::new(principal)
+            .map_err(|e| JsError::new(&format!("invalid principal: {e}")))?;
+        let allowed = self
+            .kernel
+            .capabilities
+            .find_capability(&principal, &resource, permission)
+            .await
+            .is_some();
+
+        let action = format!("{perm_label} {resource}");
+        let (audit_action, outcome) = if allowed {
+            (
+                astrid_audit::AuditAction::ApprovalGranted {
+                    action,
+                    resource: Some(resource.clone()),
+                    scope: astrid_audit::ApprovalScope::Session,
+                },
+                astrid_audit::AuditOutcome::success(),
+            )
+        } else {
+            (
+                astrid_audit::AuditAction::ApprovalDenied {
+                    action,
+                    reason: Some(format!(
+                        "{principal} has no {perm_label} capability for {resource}"
+                    )),
+                },
+                astrid_audit::AuditOutcome::failure("denied: no covering capability"),
+            )
+        };
+        if let Err(e) = self
+            .kernel
+            .audit_log
+            .append_with_principal(
+                self.kernel.session_id.clone(),
+                principal.clone(),
+                audit_action,
+                astrid_audit::AuthorizationProof::NotRequired {
+                    reason: "playground guest mediation".to_string(),
+                },
+                outcome,
+            )
+            .await
+        {
+            web_console_warn(&format!(
+                "astrid: audit append failed for guest mediation: {e}"
+            ));
+        }
+
+        if !allowed {
+            return Err(JsError::new(&format!(
+                "denied: {principal} has no {perm_label} capability for {resource}"
+            )));
+        }
+        Ok(())
+    }
+}
+
+/// A drainable, bounded queue of `(topic, data_json)` events fed by the real
+/// bus, backing the synchronous `astrid:ipc/host` `Subscription.recv` import.
+///
+/// The capsule's synchronous recv loop calls [`drain`](SyncTopicQueue::drain)
+/// to pull all queued events (an empty `"[]"` is the "no messages" signal) and
+/// [`dropped`](SyncTopicQueue::dropped) to observe lag-drop. Bounded at
+/// [`SYNC_QUEUE_CAP`]; on overflow the OLDEST entry is dropped.
+#[wasm_bindgen]
+pub struct SyncTopicQueue {
+    queue: Rc<RefCell<VecDeque<(String, String)>>>,
+    dropped: Rc<RefCell<u64>>,
+}
+
+#[wasm_bindgen]
+impl SyncTopicQueue {
+    /// Drain and clear the queue, returning a JSON array
+    /// `[{"topic": ..., "data": ...}]` of all queued entries, oldest first.
+    ///
+    /// `data` is the event payload parsed back to JSON when possible (a bare
+    /// string otherwise). An empty queue returns `"[]"` — the "no messages"
+    /// signal the capsule's recv loop expects.
+    #[wasm_bindgen(js_name = drain)]
+    pub fn drain(&self) -> String {
+        let mut q = self.queue.borrow_mut();
+        let items: Vec<serde_json::Value> = q
+            .iter()
+            .map(|(topic, data_json)| {
+                let data = serde_json::from_str::<serde_json::Value>(data_json)
+                    .unwrap_or_else(|_| serde_json::Value::String(data_json.clone()));
+                serde_json::json!({ "topic": topic, "data": data })
+            })
+            .collect();
+        q.clear();
+        serde_json::to_string(&items).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Running count of entries dropped due to the queue being full.
+    #[wasm_bindgen(js_name = dropped)]
+    #[must_use]
+    pub fn dropped(&self) -> u64 {
+        *self.dropped.borrow()
+    }
+}
+
+/// Derive `(topic, data_json)` from a bus event: `Custom` events deliver
+/// `(name, data)`; any other event delivers `(serde tag, full event json)` so
+/// nothing is dropped silently. Shared by [`AstridWeb::subscribe`] and
+/// [`AstridWeb::host_subscribe_queue`] so the extraction lives in one place.
+fn extract_topic_data(event: &AstridEvent) -> (String, String) {
+    match event {
+        AstridEvent::Custom { name, data, .. } => (name.clone(), data.to_string()),
+        other => {
+            let value = serde_json::to_value(other).unwrap_or_else(|_| serde_json::json!({}));
+            let kind = value
+                .get("type")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("event")
+                .to_string();
+            let json = serde_json::to_string(&value).unwrap_or_else(|_| "{}".to_string());
+            (kind, json)
+        }
     }
 }
 

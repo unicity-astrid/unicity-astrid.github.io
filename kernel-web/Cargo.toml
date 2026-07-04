@@ -30,5 +30,11 @@ wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 serde_json = "1"
 
+# `FutureExt::now_or_never` for the synchronous jco host-import KV shims: the
+# in-memory `MemoryKvStore` futures have no await points and resolve on the
+# first poll on this single-threaded target. default-features off keeps the
+# no_std combinator surface only (no executor/std). Matches core's 0.3 pin.
+futures = { version = "0.3", default-features = false }
+
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
