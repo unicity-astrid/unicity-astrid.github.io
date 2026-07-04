@@ -232,3 +232,53 @@ Two-panel sandbox, "build a capability capsule in your tab":
 Each phase: Opus builds from a decision-free spec, orchestrator reviews the diff
 adversarially, runs the build, and (with Joshua) eyeballs the page before the next
 phase starts.
+
+## 8. v2 — the site eats its own dog food (LOCKED)
+
+### 8.1 Section capsules
+
+Interactive page behaviour moves out of page scripts and into REAL Astrid
+capsules: Rust, `astrid-sdk`, `wasm32-unknown-unknown`, componentized and
+jco-transpiled, running against the in-tab kernel with the live host adapter
+(the showcase machinery, generalized). The page becomes an uplink; the
+behaviour is guest code. Three capsules under `site-capsules/`:
+
+- **site-pulse** — owns the homepage routing demo. Input: `site.v1.clock.tick
+  {n}` (published by the page; the page is the clock because a sandboxed guest
+  has no timer authority). Behaviour: count ticks in KV (`pulse.count`),
+  publish `site.v1.demo.route {n, count, via: "site-pulse"}`. Uninstall it and
+  the routing pulses on the page STOP: disabling a capsule disables the page
+  element, for real.
+- **site-guard** — the layering demo. Input: `site.v1.input.text {text}`.
+  If the text contains a blocklisted word (`password`, `secret`, `ssh`,
+  case-insensitive) publish `site.v1.guard.blocked {reason, redacted}`;
+  otherwise pass it through as `site.v1.guarded.text {text}`. Honesty label
+  on the page: this ordering is BUS TOPOLOGY (guard owns the input topic,
+  downstream listens to `guarded`), not kernel interceptor priority, which is
+  a native-daemon feature.
+- **site-echo** — sits BEHIND the guard. Input: `site.v1.guarded.text {text}`.
+  Publish `site.v1.echo.reply {reply, seen}` with a KV-counted `seen`.
+  Uninstall the guard while echo stays: raw input then reaches nobody
+  (echo listens to `guarded.*` only) — the page explains exactly that.
+
+HUD drawer grows an "installed capsules" rack: each section capsule shows
+name, topics, and a real install/uninstall toggle (instantiate + grants on
+install; revoke + drop on uninstall). All grants/revokes/denials land on the
+real audit ledger.
+
+### 8.2 Agent pill
+
+Oval input docked to the rail, bottom of viewport. Opt-in LLM (WebLLM,
+in-browser inference; weights download only on explicit click, size stated
+up front). Without opt-in the pill is an honest docs lens: it knows where you
+are (the page publishes `site.nav.v1.section {id}` as sections scroll in) and
+surfaces the book chapters behind the current section. With the LLM enabled it
+answers questions grounded in a build-time book index, and streams its status
+over the real bus (`site.agent.v1.status {state}`,
+`site.agent.v1.token {text}`) so the HUD and rail show the agent working.
+Nothing pretends: pill states are labelled "docs lens" vs "agent (local LLM)".
+
+### 8.3 Out of tab scope (tracked, not built here)
+
+Browser-compile SDK (AssemblyScript candidate), local-daemon uplink to the
+playground, GH-Pages registry, density benchmark: separate design docs.

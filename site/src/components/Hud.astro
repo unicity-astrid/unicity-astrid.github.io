@@ -23,6 +23,14 @@
     <div><dt>events routed</dt><dd id="hud-f-events">–</dd></div>
     <div><dt>audit entries</dt><dd id="hud-f-audit">–</dd></div>
   </dl>
+  <h3 class="mono dim">installed capsules</h3>
+  <ul id="hud-capsules" class="hud-capsules mono"></ul>
+  <p class="hud-note dim hud-capsule-note">
+    These are real Rust capsules (astrid-sdk, compiled to WebAssembly) running
+    the page's behaviour. Uninstall one and the part of the page it powers
+    stops. Install and uninstall mint and revoke real capability tokens on the
+    audit chain. Native installs additionally verify publisher signatures.
+  </p>
   <h3 class="mono dim">audit tail</h3>
   <ol id="hud-audit" class="hud-audit mono" reversed></ol>
   <p class="hud-note dim">
@@ -143,6 +151,68 @@
     margin-bottom: var(--s-1);
   }
 
+  .hud-capsules {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: 0.3em;
+    font-size: 0.72rem;
+    margin-bottom: var(--s-1);
+  }
+
+  .hud-capsules :global(li) {
+    display: flex;
+    align-items: center;
+    gap: 0.8em;
+    padding: 0.35em 0.5em;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+
+  .hud-capsules :global(.cap-name) {
+    color: var(--capsule);
+    flex: none;
+  }
+
+  .hud-capsules :global(.cap-blurb) {
+    color: var(--text-faint);
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .hud-capsules :global(.cap-toggle) {
+    flex: none;
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 0.9em;
+    padding: 0.15em 0.7em;
+    cursor: pointer;
+  }
+
+  .hud-capsules :global(.cap-toggle:hover) {
+    color: var(--text);
+    border-color: var(--line-bright);
+  }
+
+  .hud-capsules :global(.cap-toggle[data-state='installed']) {
+    color: var(--grant);
+    border-color: color-mix(in srgb, var(--grant) 40%, transparent);
+  }
+
+  .hud-capsules :global(.cap-toggle[data-state='uninstalled']) {
+    color: var(--deny);
+    border-color: color-mix(in srgb, var(--deny) 40%, transparent);
+  }
+
+  .hud-capsule-note {
+    margin-bottom: var(--s-3);
+  }
+
   .hud-audit {
     list-style: none;
     padding: 0;
@@ -186,6 +256,12 @@
 
 <script>
   import { onKernel, kernel } from '../scripts/kernel';
+  import {
+    SECTION_CAPSULES,
+    capsuleState,
+    onSectionCapsules,
+    toggleCapsule,
+  } from '../scripts/section-capsules';
 
   const $ = (id: string) => document.getElementById(id)!;
   const hud = $('hud');
@@ -256,6 +332,38 @@
       /* tail stays as-is; next tick retries */
     }
   }
+
+  // ---- section-capsule rack ----
+  function renderCapsules(): void {
+    const list = $('hud-capsules');
+    list.innerHTML = '';
+    for (const def of SECTION_CAPSULES) {
+      const state = capsuleState(def.name);
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      name.className = 'cap-name';
+      name.textContent = def.name;
+      const blurb = document.createElement('span');
+      blurb.className = 'cap-blurb';
+      blurb.textContent = def.blurb;
+      li.append(name, blurb);
+      if (state === 'installed' || state === 'uninstalled') {
+        const btn = document.createElement('button');
+        btn.className = 'cap-toggle';
+        btn.dataset.state = state;
+        btn.textContent = state === 'installed' ? 'installed' : 'install';
+        btn.addEventListener('click', () => void toggleCapsule(def.name));
+        li.append(btn);
+      } else {
+        const off = document.createElement('span');
+        off.className = 'cap-blurb';
+        off.textContent = state === 'error' ? 'failed to load' : 'not in this build';
+        li.append(off);
+      }
+      list.append(li);
+    }
+  }
+  onSectionCapsules(renderCapsules);
 
   hud.addEventListener('click', () => {
     const open = drawer.hidden;

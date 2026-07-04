@@ -15,7 +15,7 @@ export function initScenes(): void {
   // generic section reveals
   for (const scene of document.querySelectorAll<HTMLElement>('[data-scene]')) {
     const targets = scene.querySelectorAll<HTMLElement>(
-      '.thesis-line, .thesis-note, .scene-copy, .endpoints, .capsule-rack, .prose, .layers, .grow-quote, .books-grid, .cap-rig, .aud-grid',
+      '.thesis-line, .thesis-note, .scene-copy, .endpoints, .capsule-rack, .prose, .layers, .layers-rig, .grow-quote, .books-grid, .cap-rig, .aud-grid',
     );
     if (!targets.length) continue;
     gsap.from(targets, {

@@ -24,6 +24,10 @@
       each pulse riding the rail is a real message moving inside this page,
       <span id="dk-count">0</span> so far in this scene
     </p>
+    <p class="mono live-caption off-caption" id="dk-off" hidden>
+      site-pulse is uninstalled. The engine still runs; nobody is routing.
+      Reinstall it from the kernel panel, top right.
+    </p>
   </div>
   <div class="endpoints" aria-hidden="true">
     <span class="dock-chip" data-dock="uplink"><span class="kind">uplink ·</span> cli</span>
@@ -71,17 +75,27 @@
   .live-caption span {
     font-variant-numeric: tabular-nums;
   }
+
+  .off-caption {
+    color: var(--deny);
+  }
 </style>
 
 <script>
   import { onKernel, kernel } from '../scripts/kernel';
+  import { capsuleState, onSectionCapsules } from '../scripts/section-capsules';
 
   const caption = document.getElementById('dk-caption')!;
+  const offNote = document.getElementById('dk-off')!;
   const count = document.getElementById('dk-count')!;
   let seen = 0;
+  let n = 0;
   let timer: number | undefined;
 
-  // demo publisher: real publishes onto the real bus, only while visible
+  // The page is the clock (a sandboxed guest has no timer authority): real
+  // tick publishes while the scene is visible. The ROUTING lives in the
+  // site-pulse capsule; the counter below only moves when site-pulse turns a
+  // tick into site.v1.demo.route. Uninstall it and this element goes quiet.
   const section = document.getElementById('dumb-kernel')!;
   const io = new IntersectionObserver((entries) => {
     const on = entries[0]?.isIntersecting ?? false;
@@ -89,10 +103,17 @@
       timer = window.setInterval(() => {
         const bridge = kernel();
         if (!bridge) return;
-        void bridge.publish(
-          'site.v1.demo.route',
-          JSON.stringify({ scene: 'dumb-kernel', at: Date.now() }),
-        );
+        // Builds without the capsule assets fall back to routing directly
+        // (still a real publish); with site-pulse present, the capsule owns
+        // the routing and uninstalling it genuinely silences this scene.
+        if (capsuleState('site-pulse') === 'unavailable') {
+          void bridge.publish(
+            'site.v1.demo.route',
+            JSON.stringify({ scene: 'dumb-kernel', via: 'page' }),
+          );
+        } else {
+          void bridge.publish('site.v1.clock.tick', JSON.stringify({ n: ++n }));
+        }
       }, 2600);
     } else if (!on && timer !== undefined) {
       clearInterval(timer);
@@ -108,5 +129,11 @@
       seen += 1;
       count.textContent = String(seen);
     });
+  });
+
+  onSectionCapsules(() => {
+    // Only flag the uninstalled state when the capsule system is actually
+    // present in this build; 'unavailable' keeps the old caption honest.
+    offNote.hidden = capsuleState('site-pulse') !== 'uninstalled';
   });
 </script>

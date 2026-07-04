@@ -32,7 +32,16 @@ export interface LiveHost {
 export const SHOWCASE_SOURCE = 'capsule-prompt-builder';
 const KV_NS = 'showcase.prompt-builder';
 
-export function createLiveHost(bridge: AstridBridge): LiveHost {
+export interface LiveHostOptions {
+  /** Event source the capsule's publishes are attributed to. */
+  source?: string;
+  /** KV namespace the capsule's keys live under. */
+  kvNs?: string;
+}
+
+export function createLiveHost(bridge: AstridBridge, opts: LiveHostOptions = {}): LiveHost {
+  const SOURCE = opts.source ?? SHOWCASE_SOURCE;
+  const NS = opts.kvNs ?? KV_NS;
   if (
     !bridge.hostPublish ||
     !bridge.hostKvGetSync ||
@@ -84,11 +93,11 @@ export function createLiveHost(bridge: AstridBridge): LiveHost {
     publish(topic: string, payload: string) {
       record('astrid:ipc/host', 'publish', topic);
       try {
-        bridge.hostPublish!(SHOWCASE_SOURCE, topic, payload);
+        bridge.hostPublish!(SOURCE, topic, payload);
       } catch {
         // Non-JSON payloads still deserve a real delivery: publish them as a
         // JSON string rather than dropping the event.
-        bridge.hostPublish!(SHOWCASE_SOURCE, topic, JSON.stringify(payload));
+        bridge.hostPublish!(SOURCE, topic, JSON.stringify(payload));
       }
     },
     subscribe(topicPattern: string) {
@@ -100,18 +109,18 @@ export function createLiveHost(bridge: AstridBridge): LiveHost {
   // --- astrid:kv/host ----------------------------------------------------
   const kv = {
     kvGet(key: string): Uint8Array | undefined {
-      const v = bridge.hostKvGetSync!(KV_NS, key);
+      const v = bridge.hostKvGetSync!(NS, key);
       record('astrid:kv/host', 'kvGet', `${key} -> ${v === undefined ? 'none' : `${v.length}B`}`);
       return v === undefined ? undefined : enc.encode(v);
     },
     kvSet(key: string, value: Uint8Array) {
-      bridge.hostKvSetSync!(KV_NS, key, dec.decode(value));
+      bridge.hostKvSetSync!(NS, key, dec.decode(value));
       record('astrid:kv/host', 'kvSet', `${key} (${value.length}B)`);
     },
     kvDelete(key: string) {
       // The bridge has no sync delete; an empty write is an honest tombstone
       // for a demo namespace and is journaled as such.
-      bridge.hostKvSetSync!(KV_NS, key, '');
+      bridge.hostKvSetSync!(NS, key, '');
       record('astrid:kv/host', 'kvDelete', `${key} (tombstoned)`);
     },
   };

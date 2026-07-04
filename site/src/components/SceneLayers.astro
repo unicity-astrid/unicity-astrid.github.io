@@ -1,0 +1,225 @@
+---
+/** Section — capsule layering, live. The visitor types into an oval input;
+ *  the text becomes a real bus event; the site-guard capsule screens it
+ *  BEFORE site-echo ever sees it. Uninstalling the guard from the kernel
+ *  panel shows the honest consequence: raw input reaches nobody, because
+ *  echo only listens to the guarded topic. */
+---
+
+<section class="layers-scene wrap" id="layers" data-scene>
+  <div class="scene-copy prose">
+    <p class="eyebrow">03 · capsules in layers</p>
+    <h2>Put a guard in front.<br />Nothing gets around it.</h2>
+    <p>
+      Capsules stack. Type something below: your words become a real message
+      on the engine's bus, and a guard capsule reads them before the echo
+      capsule is allowed to. Try including the word <em>password</em> and
+      watch the guard stop it cold.
+    </p>
+    <p class="mono live-caption">
+      the ordering here is bus topology: the guard owns the input topic and
+      republishes to a guarded one. On a native install, the kernel can also
+      enforce interceptor priority.
+    </p>
+  </div>
+
+  <div class="layers-rig">
+    <div class="layers-chain" aria-hidden="true">
+      <span class="dock-chip" data-dock="capsule">site-guard · reads site.v1.input.*</span>
+      <span class="chain-arrow mono">↓ site.v1.guarded.text</span>
+      <span class="dock-chip" data-dock="capsule">site-echo · replies</span>
+    </div>
+
+    <form class="oval-form" id="layers-form">
+      <input
+        id="layers-input"
+        class="oval-input mono"
+        type="text"
+        maxlength="120"
+        placeholder="say something to the bus…"
+        autocomplete="off"
+        disabled
+      />
+      <button class="oval-send mono" type="submit" disabled id="layers-send">send</button>
+    </form>
+
+    <ul class="layers-feed mono" id="layers-feed" aria-live="polite"></ul>
+  </div>
+</section>
+
+<style>
+  .layers-scene {
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 6fr);
+    gap: var(--s-5);
+    align-items: start;
+    padding-block: var(--s-8);
+  }
+
+  @media (max-width: 900px) {
+    .layers-scene {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .scene-copy h2 {
+    font-size: var(--step-4);
+    margin-block: var(--s-2) var(--s-3);
+  }
+
+  .scene-copy p + p {
+    margin-top: var(--s-2);
+  }
+
+  .live-caption {
+    font-size: var(--step--1);
+    color: var(--text-dim);
+  }
+
+  .layers-chain {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-1);
+    margin-bottom: var(--s-3);
+  }
+
+  .chain-arrow {
+    color: var(--text-faint);
+    font-size: var(--step--1);
+    padding-left: var(--s-2);
+  }
+
+  .oval-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .oval-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--text);
+    font-size: var(--step--1);
+    padding: 0.7em 1.2em;
+  }
+
+  .oval-input:focus-visible {
+    outline: none;
+    border-color: var(--bus);
+    box-shadow: 0 0 0 1px var(--bus);
+  }
+
+  .oval-input:disabled {
+    opacity: 0.5;
+  }
+
+  .oval-send {
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: var(--step--1);
+    padding: 0.7em 1.4em;
+    cursor: pointer;
+  }
+
+  .oval-send:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--bus);
+  }
+
+  .oval-send:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .layers-feed {
+    list-style: none;
+    margin: var(--s-3) 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.4rem;
+    font-size: var(--step--1);
+    max-height: 16rem;
+    overflow-y: auto;
+  }
+
+  .layers-feed :global(li) {
+    padding: 0.4em 0.7em;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow-wrap: anywhere;
+  }
+
+  .layers-feed :global(.l-you) { color: var(--text-dim); }
+  .layers-feed :global(.l-blocked) { color: var(--deny); border-color: color-mix(in srgb, var(--deny) 35%, transparent); }
+  .layers-feed :global(.l-reply) { color: var(--bus); }
+  .layers-feed :global(.l-note) { color: var(--text-faint); border-style: dashed; }
+</style>
+
+<script>
+  import { onKernel, type AstridBridge } from '../scripts/kernel';
+  import { capsuleState, onSectionCapsules } from '../scripts/section-capsules';
+
+  const input = document.getElementById('layers-input') as HTMLInputElement;
+  const send = document.getElementById('layers-send') as HTMLButtonElement;
+  const form = document.getElementById('layers-form') as HTMLFormElement;
+  const feed = document.getElementById('layers-feed') as HTMLUListElement;
+
+  let bridge: AstridBridge | null = null;
+
+  function push(cls: string, text: string): void {
+    const li = document.createElement('li');
+    li.className = cls;
+    li.textContent = text;
+    feed.append(li);
+    while (feed.children.length > 24) feed.firstChild?.remove();
+    feed.scrollTop = feed.scrollHeight;
+  }
+
+  onKernel((status, b) => {
+    if (status !== 'online' || !b) return;
+    bridge = b;
+    b.subscribe('site.v1.guard.blocked', (_t, json) => {
+      try {
+        const { reason, redacted } = JSON.parse(json) as { reason: string; redacted: string };
+        push('l-blocked', `guard: ${reason} · "${redacted}"`);
+      } catch {
+        push('l-blocked', 'guard: blocked');
+      }
+    });
+    b.subscribe('site.v1.echo.reply', (_t, json) => {
+      try {
+        const { reply, seen } = JSON.parse(json) as { reply: string; seen: number };
+        push('l-reply', `echo: ${reply} (message #${seen} it has seen)`);
+      } catch {
+        push('l-reply', 'echo replied');
+      }
+    });
+  });
+
+  onSectionCapsules(() => {
+    const guardOn = capsuleState('site-guard') === 'installed';
+    const echoOn = capsuleState('site-echo') === 'installed';
+    const ready = capsuleState('site-guard') !== 'unavailable';
+    input.disabled = !ready || !bridge;
+    send.disabled = input.disabled;
+    if (ready && !guardOn && echoOn) {
+      push('l-note', 'the guard is uninstalled: your raw input now reaches nobody. echo only listens to the guarded topic.');
+    }
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text || !bridge) return;
+    push('l-you', `you: ${text}`);
+    void bridge.publish('site.v1.input.text', JSON.stringify({ text }));
+    input.value = '';
+    input.focus();
+  });
+</script>

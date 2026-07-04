@@ -1,0 +1,359 @@
+---
+/**
+ * The agent pill: an oval input docked above the rail, bottom of viewport.
+ * Two honest modes, labelled:
+ *  - docs lens (default): finds book chapters for what you typed and for
+ *    where you are on the page. Search, not intelligence; says so.
+ *  - local agent (opt-in): WebLLM in your tab, weights downloaded only after
+ *    a click that states the size. Answers grounded in the book, status
+ *    streamed over the real bus.
+ */
+---
+
+<div class="pill-wrap" id="pill-wrap" hidden>
+  <div class="pill-status mono" id="pill-status" hidden></div>
+  <div class="pill-panel card" id="pill-panel" hidden>
+    <div class="pill-results" id="pill-results"></div>
+    <p class="pill-mode mono" id="pill-mode">
+      docs lens: this finds chapters, it does not think.
+      <button class="pill-enable mono" id="pill-enable" type="button">
+        enable local agent
+      </button>
+    </p>
+    <p class="pill-consent mono" id="pill-consent" hidden>
+      the agent runs entirely in your tab (WebGPU) and downloads roughly half
+      a gigabyte of model weights, once. nothing you type leaves this page.
+      <button class="pill-enable mono" id="pill-confirm" type="button">download and run</button>
+      <button class="pill-enable mono" id="pill-cancel" type="button">cancel</button>
+    </p>
+  </div>
+  <form class="pill-form" id="pill-form">
+    <span class="pill-dot" id="pill-dot" data-state="lens" aria-hidden="true"></span>
+    <input
+      id="pill-input"
+      class="pill-input mono"
+      type="text"
+      placeholder="ask the book…"
+      autocomplete="off"
+      maxlength="200"
+    />
+    <button class="pill-send mono" type="submit" aria-label="Ask">→</button>
+  </form>
+</div>
+
+<style>
+  .pill-wrap {
+    position: fixed;
+    bottom: var(--s-3);
+    left: calc(var(--rail-x) + 1.25rem);
+    z-index: 90;
+    width: min(30rem, calc(100vw - var(--rail-x) - 3rem));
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .pill-form {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.35rem 0.5rem 0.35rem 1rem;
+    backdrop-filter: blur(12px);
+  }
+
+  .pill-form:focus-within {
+    border-color: var(--bus);
+  }
+
+  .pill-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    flex: none;
+  }
+
+  .pill-dot[data-state='ready'] {
+    background: var(--grant);
+  }
+
+  .pill-dot[data-state='loading'],
+  .pill-dot[data-state='thinking'] {
+    background: var(--bus);
+    animation: pill-blink 1s ease-in-out infinite;
+  }
+
+  @keyframes pill-blink {
+    50% { opacity: 0.35; }
+  }
+
+  .pill-input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: var(--step--1);
+    outline: none;
+  }
+
+  .pill-input::placeholder {
+    color: var(--text-faint);
+  }
+
+  .pill-send {
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    width: 2rem;
+    height: 2rem;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+
+  .pill-send:hover {
+    color: var(--text);
+    border-color: var(--bus);
+  }
+
+  .pill-status {
+    font-size: 0.72rem;
+    color: var(--bus);
+    padding-left: 1rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .pill-panel {
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: var(--s-2);
+  }
+
+  .pill-results {
+    display: grid;
+    gap: 0.5rem;
+    font-size: var(--step--1);
+  }
+
+  .pill-results :global(a) {
+    display: block;
+    padding: 0.5em 0.7em;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+  }
+
+  .pill-results :global(a:hover) {
+    border-color: var(--capsule);
+    text-decoration: none;
+  }
+
+  .pill-results :global(a .t) {
+    color: var(--capsule);
+    display: block;
+  }
+
+  .pill-results :global(a .e) {
+    color: var(--text-faint);
+    font-size: 0.85em;
+  }
+
+  .pill-results :global(.answer) {
+    white-space: pre-wrap;
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  .pill-results :global(.ctx) {
+    color: var(--text-faint);
+    font-size: 0.8em;
+  }
+
+  .pill-mode,
+  .pill-consent {
+    margin-top: var(--s-2);
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    line-height: 1.6;
+  }
+
+  .pill-enable {
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--capsule);
+    font: inherit;
+    padding: 0.1em 0.7em;
+    cursor: pointer;
+    margin-left: 0.4em;
+  }
+
+  .pill-enable:hover {
+    border-color: var(--capsule);
+  }
+
+  @media (max-width: 640px) {
+    .pill-wrap {
+      left: var(--s-2);
+      width: calc(100vw - 2 * var(--s-2));
+    }
+  }
+</style>
+
+<script>
+  import { onKernel, type AstridBridge } from '../scripts/kernel';
+  import { searchBook, queryForSection, type Chapter } from '../scripts/book-lens';
+  import { startNavContext, currentSection } from '../scripts/nav-context';
+  import { enableAgent, askAgent, agentState, webGpuAvailable } from '../scripts/local-agent';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const wrap = $('pill-wrap');
+  const panel = $('pill-panel');
+  const results = $('pill-results');
+  const statusLine = $('pill-status');
+  const dot = $('pill-dot');
+  const input = $('pill-input') as HTMLInputElement;
+  const mode = $('pill-mode');
+  const consent = $('pill-consent');
+
+  let bridge: AstridBridge | null = null;
+
+  onKernel((status, b) => {
+    if (status !== 'online' || !b) return;
+    bridge = b;
+    wrap.hidden = false;
+    startNavContext(b);
+    // The pill renders agent status from the same bus events everyone else
+    // sees; the status line IS the event stream.
+    b.subscribe('site.agent.v1.status', (_t, json) => {
+      try {
+        const { state, detail } = JSON.parse(json) as { state: string; detail: string };
+        dot.dataset.state = state === 'off' || state === 'unsupported' ? 'lens' : state;
+        statusLine.hidden = false;
+        statusLine.textContent = `agent · ${state}${detail ? ` · ${detail}` : ''}`;
+      } catch {
+        /* keep the previous status */
+      }
+    });
+  });
+
+  function showPanel(): void {
+    panel.hidden = false;
+  }
+
+  function renderChapters(chapters: Chapter[], heading?: string): void {
+    results.innerHTML = '';
+    if (heading) {
+      const p = document.createElement('p');
+      p.className = 'ctx mono';
+      p.textContent = heading;
+      results.append(p);
+    }
+    if (!chapters.length) {
+      const p = document.createElement('p');
+      p.className = 'ctx mono';
+      p.textContent = 'nothing in the book matched that.';
+      results.append(p);
+    }
+    for (const c of chapters) {
+      const a = document.createElement('a');
+      a.href = `/book/${c.slug}/`;
+      const t = document.createElement('span');
+      t.className = 't';
+      t.textContent = c.title;
+      const e = document.createElement('span');
+      e.className = 'e';
+      e.textContent = `${c.excerpt}…`;
+      a.append(t, e);
+      results.append(a);
+    }
+  }
+
+  // Contextual lens on focus: where you are -> the chapters behind it.
+  input.addEventListener('focus', () => {
+    if (!panel.hidden || input.value) return;
+    const section = currentSection();
+    if (!section) return;
+    void searchBook(queryForSection(section), 3).then((chapters) => {
+      if (input.value) return; // they started typing; don't stomp
+      showPanel();
+      renderChapters(chapters, `behind this section (${section}):`);
+    });
+  });
+
+  $('pill-enable').addEventListener('click', () => {
+    if (!webGpuAvailable()) {
+      mode.textContent = 'local agent needs WebGPU; this browser does not offer it. The docs lens still works.';
+      return;
+    }
+    mode.hidden = true;
+    consent.hidden = false;
+  });
+  $('pill-cancel').addEventListener('click', () => {
+    consent.hidden = true;
+    mode.hidden = false;
+  });
+  $('pill-confirm').addEventListener('click', () => {
+    if (!bridge) return;
+    consent.hidden = true;
+    mode.textContent = 'starting download…';
+    mode.hidden = false;
+    void enableAgent(bridge, (text) => {
+      mode.textContent = text;
+    }).then((ok) => {
+      mode.textContent = ok
+        ? 'local agent running in your tab. answers are grounded in the book.'
+        : 'model load failed; the docs lens still works.';
+    });
+  });
+
+  $('pill-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = input.value.trim();
+    if (!q) return;
+    showPanel();
+    void (async () => {
+      const chapters = await searchBook(q, 3);
+      if (agentState() === 'ready' && bridge) {
+        results.innerHTML = '';
+        const ans = document.createElement('p');
+        ans.className = 'answer';
+        ans.textContent = '…';
+        const ctx = document.createElement('p');
+        ctx.className = 'ctx mono';
+        ctx.textContent = `grounded in: ${chapters.map((c) => c.title).join(' · ') || 'nothing matched'}`;
+        results.append(ans, ctx);
+        try {
+          await askAgent(bridge, q, chapters, (full) => {
+            ans.textContent = full;
+          });
+        } catch (err) {
+          ans.textContent = `agent failed: ${err instanceof Error ? err.message : err}`;
+        }
+        renderAppendLinks(chapters);
+      } else {
+        renderChapters(chapters, `chapters matching "${q}":`);
+      }
+    })();
+  });
+
+  function renderAppendLinks(chapters: Chapter[]): void {
+    for (const c of chapters) {
+      const a = document.createElement('a');
+      a.href = `/book/${c.slug}/`;
+      const t = document.createElement('span');
+      t.className = 't';
+      t.textContent = c.title;
+      a.append(t);
+      results.append(a);
+    }
+  }
+
+  // Click-away closes the panel.
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target as Node)) panel.hidden = true;
+  });
+</script>

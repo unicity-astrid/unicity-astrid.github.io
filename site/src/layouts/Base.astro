@@ -6,6 +6,7 @@ import '@fontsource/ibm-plex-mono/500.css';
 import '../styles/tokens.css';
 import '../styles/base.css';
 import Hud from '../components/Hud.astro';
+import AgentPill from '../components/AgentPill.astro';
 
 interface Props {
   title: string;
@@ -37,13 +38,18 @@ const { title, description } = Astro.props;
       <a href="/playground/">playground</a>
     </nav>
     <Hud />
+    <AgentPill />
     <slot />
     <script>
       import { bootKernel } from '../scripts/kernel';
+      import { bootSectionCapsules } from '../scripts/section-capsules';
       import '../scripts/rail';
       // Boot the real kernel after first paint; the HUD flips when it lands.
+      // Then instantiate the section capsules that ship with this build.
       requestAnimationFrame(() => {
-        void bootKernel();
+        void bootKernel().then((bridge) => {
+          if (bridge) void bootSectionCapsules(bridge);
+        });
       });
     </script>
     <style>
