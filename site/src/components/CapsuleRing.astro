@@ -54,7 +54,8 @@ const front = burst(170, 23, 130, 255);
 ---
 
 <div class="ring-wrap" aria-hidden="true">
-  <svg class="ring" viewBox="0 0 600 600">
+  <canvas class="burst-gl" id="burst-gl"></canvas>
+  <svg class="ring" id="burst-svg" viewBox="0 0 600 600">
     <g class="layer layer-back">
       {
         back.map((d) => (
@@ -141,4 +142,49 @@ const front = burst(170, 23, 130, 255);
       opacity: 0.5;
     }
   }
+
+  .burst-gl {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+  }
+
+  .ring-wrap[data-gl='true'] .burst-gl {
+    display: block;
+  }
+
+  .ring-wrap[data-gl='true'] .ring {
+    display: none;
+  }
+
+  @media (max-width: 900px) {
+    .burst-gl {
+      opacity: 0.55;
+    }
+  }
 </style>
+
+<script>
+  import { startBurst } from '../scripts/burst-gl';
+
+  // The live 3D burst; the static SVG stays as the no-WebGL2 fallback. The
+  // canvas is re-created on every client-router visit and browsers cap live
+  // WebGL contexts, so each visit boots a fresh burst and the swap-out
+  // releases the old one.
+  let stop: (() => void) | null = null;
+  function wire(): void {
+    const canvas = document.getElementById('burst-gl') as HTMLCanvasElement | null;
+    if (!canvas || stop) return;
+    // burst centre matches the SVG's old anchor: 72% across, vertically centred
+    stop = startBurst(canvas, { x: 0.72, y: 0.5 });
+    if (stop) canvas.parentElement?.setAttribute('data-gl', 'true');
+  }
+  wire();
+  document.addEventListener('astro:page-load', wire);
+  document.addEventListener('astro:before-swap', () => {
+    stop?.();
+    stop = null;
+  });
+</script>
