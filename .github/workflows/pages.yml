@@ -18,23 +18,35 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # The site renders the book verbatim from its own repo, expecting it as
+      # a sibling directory (see site/src/content.config.ts). Check both out
+      # side by side.
       - uses: actions/checkout@v4
+        with:
+          path: astrid-web
+      - uses: actions/checkout@v4
+        with:
+          repository: unicity-astrid/book
+          # Pinned to the branch carrying the Your First Capsule chapter the
+          # site links to; switch to `main` once that branch merges.
+          ref: docs/first-capsule
+          path: astrid-book
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: site/package-lock.json
+          cache-dependency-path: astrid-web/site/package-lock.json
       - name: Install
-        working-directory: site
+        working-directory: astrid-web/site
         run: npm ci
       - name: Build
-        working-directory: site
+        working-directory: astrid-web/site
         env:
           ASTRO_TELEMETRY_DISABLED: '1'
         run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site/dist
+          path: astrid-web/site/dist
 
   deploy:
     needs: build
