@@ -453,10 +453,12 @@ export function startBurst(
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
     const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
-    }
+    // Same rounded size → do nothing at all. Touching the backing store or
+    // the wheel textures blanks them until the next frame, which the eye
+    // shows as a flicker; a no-op resize must truly be a no-op.
+    if (canvas.width === w && canvas.height === h) return;
+    canvas.width = w;
+    canvas.height = h;
     aspect = w / h;
     gl!.useProgram(prog);
     gl!.uniformMatrix4fv(uVP, false, perspective(FOVY, aspect, 0.1, 60));

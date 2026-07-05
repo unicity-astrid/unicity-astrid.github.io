@@ -98,7 +98,16 @@ const front = burst(170, 23, 130, 255);
      every in-flow section. */
   .ring-wrap {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    width: 100%;
+    /* lvh, not vh/inset: the mobile URL bar changing the visual viewport
+       must NOT resize this layer — every resize clears the WebGL canvas
+       for a frame, which reads as flicker while scrolling. Sized to the
+       largest viewport, scroll never resizes it; the sliver below the
+       fold just crops. */
+    height: 100vh;
+    height: 100lvh;
     overflow: hidden;
     pointer-events: none;
     z-index: -1;
