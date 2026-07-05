@@ -26,11 +26,12 @@ interface Step {
   detail: string;
 }
 
+// The recipes route through the provider's OWN app action (the Claude and
+// ChatGPT apps both expose one to Shortcuts), so the shortcut holds no key
+// and no secret of any kind — auth lives in the app the visitor already
+// signed into. An API-key variant exists but is strictly worse for
+// consumers; we don't teach it here.
 const commonHead: Step[] = [
-  {
-    action: 'Text',
-    detail: 'Paste your API key here. It stays inside this shortcut, on your device.',
-  },
   {
     action: 'Ask for Input (Text)',
     detail: 'Prompt: "What do you want to ask the book?" — invoked by voice, Siri speaks this and listens.',
@@ -41,37 +42,36 @@ const commonHead: Step[] = [
   },
 ];
 
+const promptNote =
+  'Compose the prompt in its text field: type "You answer questions about Astrid OS from its documentation map below. Answer in a few spoken-friendly sentences, no markdown." then insert the Contents of URL variable (step 2), then "Question:" and the Provided Input variable (step 1).';
+
 const claudeSteps: Step[] = [
   ...commonHead,
-  {
-    action: 'Get Contents of URL',
-    detail:
-      'POST https://api.anthropic.com/v1/messages · Headers: x-api-key = the Text from step 1, anthropic-version = 2023-06-01, content-type = application/json · Request body (JSON): model = claude-haiku-4-5, max_tokens = 600 (number), system = a Text combining "You answer questions about Astrid OS from its documentation map below. Answer in a few spoken-friendly sentences, no markdown." + the map from step 3, messages = a list with one dictionary { role: user, content: Provided Input }.',
-  },
-  {
-    action: 'Get Dictionary Value',
-    detail: 'Key: content — then Get First Item from List, then Get Dictionary Value: text.',
-  },
-  { action: 'Speak Text', detail: 'The value from step 5. Add Show Result too if you want it on screen.' },
+  { action: 'Ask Claude (the Claude app’s action)', detail: promptNote },
+  { action: 'Speak Text', detail: 'The result from step 3. Add Show Result too if you want it on screen.' },
 ];
 
 const openaiSteps: Step[] = [
   ...commonHead,
-  {
-    action: 'Get Contents of URL',
-    detail:
-      'POST https://api.openai.com/v1/chat/completions · Headers: Authorization = "Bearer " + the Text from step 1, content-type = application/json · Request body (JSON): model = gpt-5-mini, messages = a list of two dictionaries: { role: system, content: "You answer questions about Astrid OS from its documentation map below. Answer in a few spoken-friendly sentences, no markdown." + the map from step 3 } and { role: user, content: Provided Input }.',
-  },
-  {
-    action: 'Get Dictionary Value',
-    detail: 'Key: choices — then Get First Item from List, then Get Dictionary Value: message.content.',
-  },
-  { action: 'Speak Text', detail: 'The value from step 5. Add Show Result too if you want it on screen.' },
+  { action: 'Ask ChatGPT (the ChatGPT app’s action)', detail: promptNote },
+  { action: 'Speak Text', detail: 'The result from step 3. Add Show Result too if you want it on screen.' },
 ];
 
 const providers = [
-  { id: 'claude', label: 'Claude', keyNote: 'an Anthropic API key (sk-ant-…)', link: ICLOUD_CLAUDE, steps: claudeSteps },
-  { id: 'openai', label: 'ChatGPT', keyNote: 'an OpenAI API key (sk-…)', link: ICLOUD_OPENAI, steps: openaiSteps },
+  {
+    id: 'claude',
+    label: 'Claude',
+    keyNote: 'the Claude app installed and signed in — no API key; it uses the account you already have',
+    link: ICLOUD_CLAUDE,
+    steps: claudeSteps,
+  },
+  {
+    id: 'openai',
+    label: 'ChatGPT',
+    keyNote: 'the ChatGPT app installed and signed in — no API key; it uses the account you already have',
+    link: ICLOUD_OPENAI,
+    steps: openaiSteps,
+  },
 ];
 ---
 
@@ -89,11 +89,11 @@ const providers = [
         question, hear the answer. No app. Works on any iPhone.
       </p>
       <p class="mono siri-honesty">
-        Plain dealing: this shortcut talks straight to the AI provider you
-        pick, using your own key, which lives in your Shortcuts app on your
-        device and is never sent to us. It is not Astrid answering — no
-        kernel, no permission checks, no receipts. It's the book, read to
-        you by a model you brought.
+        Plain dealing: this shortcut routes through the AI app you already
+        have, on the account you already signed into. It holds no key and
+        no secret, and nothing goes through us. It is not Astrid answering —
+        no kernel, no permission checks, no receipts. It's the book, read
+        to you by a model you brought.
       </p>
     </header>
 
@@ -111,7 +111,7 @@ const providers = [
               <p class="mono siri-soon">One-tap add link coming. The recipe below builds it in about two minutes.</p>
             )}
             <details class="siri-recipe">
-              <summary class="mono">The recipe · 6 actions, no secrets, no tricks</summary>
+              <summary class="mono">The recipe · 4 actions, no key, no secrets</summary>
               <ol class="siri-steps">
                 {p.steps.map((s) => (
                   <li>
