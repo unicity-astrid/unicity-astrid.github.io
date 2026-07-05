@@ -1,11 +1,48 @@
 ---
-/** /registry — the agent builder and capsule registry, shown as a ghosted
- *  concept preview. Everything interactive is genuinely disabled and the
- *  page says so up front: this is a preview of what's coming, not a demo
- *  pretending to work. The flow it previews: pick abilities → bundle into
- *  one installable file — or skip the file and slot it straight into a
- *  running Astrid. */
+/** /registry — the capsule registry as a ghosted concept preview, plus the
+ *  agent builder as its own, clearly separate, ghosted concept. Everything
+ *  below the honesty banner is genuinely disabled and says so up front.
+ *  The difference from a mockup: every capsule card is REAL — name,
+ *  version, and description come from the fleet's own Capsule.toml files,
+ *  and all of them are on GitHub today. Only the registry SERVICE (search,
+ *  tags, popularity, one-command install) is the part that's coming. */
 import Base from '../layouts/Base.astro';
+
+interface Cap {
+  name: string;
+  v: string;
+  desc: string;
+  tags: string[];
+  hot?: boolean;
+}
+
+const caps: Cap[] = [
+  { name: 'http', v: '0.1.1', desc: 'The web for agents, behind the airlock', tags: ['tools'], hot: true },
+  { name: 'memory', v: '0.1.0', desc: 'Cross-session memory, injected into the prompt', tags: ['memory', 'prompt'], hot: true },
+  { name: 'react', v: '0.2.1', desc: 'The agent loop: stateless coordinator for reasoning and tools', tags: ['core'], hot: true },
+  { name: 'fs', v: '0.1.0', desc: 'Core filesystem tools', tags: ['tools'] },
+  { name: 'shell', v: '0.2.0', desc: 'Shell execution, gated behind approval', tags: ['tools'] },
+  { name: 'skills', v: '0.2.0', desc: 'Loads Agent Skills through the virtual filesystem', tags: ['tools', 'prompt'] },
+  { name: 'system', v: '0.1.0', desc: 'Lets the agent inspect and manage its own runtime', tags: ['tools'] },
+  { name: 'forge', v: '0.1.0', desc: 'Tools and a Skill that teach a fresh LLM to build capsules', tags: ['dev'] },
+  { name: 'openai', v: '0.2.0', desc: 'Native OpenAI model provider', tags: ['providers'] },
+  { name: 'openai-compat', v: '0.2.0', desc: 'Any OpenAI-compatible provider: LM Studio, Ollama, llama.cpp', tags: ['providers'] },
+  { name: 'registry', v: '0.2.0', desc: 'Discovers and manages the models available to the OS', tags: ['providers'] },
+  { name: 'identity', v: '0.2.0', desc: 'Owns who the agent is and builds its system prompt', tags: ['prompt'] },
+  { name: 'prompt-builder', v: '0.1.0', desc: 'Assembles prompts, with hooks for anything to contribute', tags: ['prompt', 'core'] },
+  { name: 'context-engine', v: '0.1.0', desc: 'Compacts the context window when conversations run long', tags: ['prompt', 'core'] },
+  { name: 'agents', v: '0.1.0', desc: 'Injects AGENTS.md project instructions into the prompt', tags: ['prompt'] },
+  { name: 'session', v: '0.2.0', desc: 'Persistent conversation store', tags: ['memory', 'core'] },
+  { name: 'router', v: '0.1.0', desc: 'Routes every tool call, so every tool call is governable', tags: ['core'] },
+  { name: 'hook-bridge', v: '0.2.0', desc: 'Maps lifecycle events to semantic hooks', tags: ['core'] },
+  { name: 'users', v: '0.1.0', desc: 'Maps platform accounts to Astrid user identities', tags: ['core'] },
+  { name: 'cli', v: '0.2.0', desc: 'The terminal frontend, bridged over a Unix socket', tags: ['frontends'] },
+  { name: 'telegram', v: '0.1.0', desc: 'A Telegram bot as a frontend to your agent', tags: ['frontends'] },
+];
+
+const tagSet = ['all', 'core', 'tools', 'providers', 'prompt', 'memory', 'frontends', 'dev'];
+const spotlight = caps.filter((c) => c.hot);
+const shelf = caps.filter((c) => !c.hot);
 
 const abilities = [
   { name: 'Memory', note: 'Remembers across sessions', on: true },
@@ -17,84 +54,132 @@ const abilities = [
   { name: 'Discord', note: 'Speak in your server', on: false },
   { name: 'Skills', note: 'How-to knowledge packs', on: true },
 ];
-
-const registryRows = [
-  { name: 'capsule-http', by: 'unicity', note: 'The web, behind the airlock' },
-  { name: 'capsule-memory', by: 'unicity', note: 'Permanent recall' },
-  { name: 'capsule-shell', by: 'unicity', note: 'Commands, gated' },
-  { name: 'capsule-chorus', by: 'community', note: 'Many models, one voice' },
-];
 ---
 
 <Base
   title="The Registry — coming soon"
-  description="Pick the abilities you want your agent to have, bundle them into one installable file, or slot them straight into a running Astrid. Coming soon."
+  description="Every ability is a sealed, signed capsule. Browse the shelf, install with one command. Coming soon; the capsules themselves are real and on GitHub today."
 >
   <main class="reg wrap">
     <header class="reg-head">
       <p class="eyebrow">The registry · coming soon</p>
-      <h1>Build your agent<br />like a loadout.</h1>
+      <h1>One shelf.<br />Every ability.</h1>
       <p class="prose dim reg-lede">
-        Pick the abilities. Every one is a sealed capsule with its permissions
-        declared up front. Bundle them into a single installable file, or
-        skip the file entirely and slot them straight into a running Astrid.
+        Every ability is a sealed capsule: permissions declared up front,
+        signed, installable into a running Astrid with one command. Open,
+        and owned by no model vendor.
       </p>
       <p class="mono reg-honesty">
-        Concept preview · nothing below is wired up yet. What you CAN do
-        today is <a href="/playground/">build a capsule in this tab</a>
+        Concept preview · the registry service isn't live yet, so nothing
+        below is clickable. The capsules themselves are real: these are
+        their true names, versions, and descriptions, and every one is
+        <a href="https://github.com/unicity-astrid">on GitHub today</a>.
+        You can also <a href="/playground/">build one in this tab</a>.
       </p>
     </header>
 
     <div class="reg-ghost" aria-hidden="true">
-      <div class="reg-grid">
-        <section class="card reg-pick">
-          <p class="mono reg-col-title">01 · Pick its abilities</p>
-          <div class="reg-chips">
-            {
-              abilities.map((a) => (
-                <label class="reg-chip" data-on={String(a.on)}>
-                  <input type="checkbox" checked={a.on} disabled />
-                  <span class="reg-chip-name">{a.name}</span>
-                  <span class="mono reg-chip-note">{a.note}</span>
-                </label>
-              ))
-            }
-          </div>
-        </section>
-
-        <section class="card reg-bundle">
-          <p class="mono reg-col-title">02 · Take it home</p>
-          <div class="reg-file mono">
-            <span class="reg-file-icon">▣</span>
-            <span class="reg-file-name">wanderer.distro</span>
-            <span class="reg-file-meta dim">4 capsules · signed · permissions declared</span>
-          </div>
-          <div class="reg-ctas">
-            <button class="btn btn-primary" disabled>Download the file</button>
-            <button class="btn" disabled>Slot it into your Astrid →</button>
-          </div>
-          <p class="mono reg-note dim">
-            One file, ready to install anywhere Astrid runs, or hand it
-            straight to the app and skip the download
-          </p>
-        </section>
+      <div class="reg-toolbar">
+        <span class="reg-search mono">
+          <span class="reg-search-glyph">⌕</span>
+          Search {caps.length} capsules…
+        </span>
+        <span class="reg-sort mono">Sort · Popular</span>
+      </div>
+      <div class="reg-tags">
+        {tagSet.map((t, i) => <span class="mono reg-tag" data-on={String(i === 0)}>{t}</span>)}
       </div>
 
-      <section class="reg-registry">
-        <p class="mono reg-col-title">The shelf · open, signed, owned by no model vendor</p>
-        <div class="reg-rows">
-          {
-            registryRows.map((r) => (
-              <div class="reg-row mono">
-                <span class="reg-row-name">{r.name}</span>
-                <span class="reg-row-by dim">Signed · {r.by}</span>
-                <span class="reg-row-note dim">{r.note}</span>
+      <div class="reg-spot-row">
+        {
+          spotlight.map((c) => (
+            <article class="card reg-card reg-spot">
+              <header class="reg-card-head">
+                <span class="mono reg-glyph">{c.name[0]}</span>
+                <h2 class="mono reg-card-name">{c.name}</h2>
+                <span class="mono reg-card-ver">v{c.v}</span>
+              </header>
+              <p class="reg-card-desc dim">{c.desc}</p>
+              <div class="reg-card-tags">
+                {c.tags.map((t) => <span class="mono reg-card-tag">{t}</span>)}
               </div>
-            ))
-          }
-        </div>
-      </section>
+              <div class="reg-card-install mono">
+                <code>astrid capsule install {c.name}</code>
+                <span class="reg-copy">copy</span>
+              </div>
+              <p class="mono reg-card-by dim">Signed · unicity · MIT or Apache-2.0</p>
+            </article>
+          ))
+        }
+      </div>
+
+      <div class="reg-grid-cards">
+        {
+          shelf.map((c) => (
+            <article class="card reg-card">
+              <header class="reg-card-head">
+                <span class="mono reg-glyph">{c.name[0]}</span>
+                <h2 class="mono reg-card-name">{c.name}</h2>
+                <span class="mono reg-card-ver">v{c.v}</span>
+              </header>
+              <p class="reg-card-desc dim">{c.desc}</p>
+              <div class="reg-card-tags">
+                {c.tags.map((t) => <span class="mono reg-card-tag">{t}</span>)}
+              </div>
+              <div class="reg-card-install mono">
+                <code>astrid capsule install {c.name}</code>
+                <span class="reg-copy">copy</span>
+              </div>
+            </article>
+          ))
+        }
+      </div>
     </div>
+
+    <section class="reg-builder">
+      <p class="eyebrow">And after that · the builder</p>
+      <h2 class="reg-builder-title">Compose an agent like a loadout.</h2>
+      <p class="prose dim reg-lede">
+        A separate thing from the shelf: pick abilities, bundle them into a
+        single signed file, or slot them straight into a running Astrid.
+      </p>
+
+      <div class="reg-ghost" aria-hidden="true">
+        <div class="reg-grid">
+          <section class="card reg-pick">
+            <p class="mono reg-col-title">01 · Pick its abilities</p>
+            <div class="reg-chips">
+              {
+                abilities.map((a) => (
+                  <label class="reg-chip" data-on={String(a.on)}>
+                    <input type="checkbox" checked={a.on} disabled />
+                    <span class="reg-chip-name">{a.name}</span>
+                    <span class="mono reg-chip-note">{a.note}</span>
+                  </label>
+                ))
+              }
+            </div>
+          </section>
+
+          <section class="card reg-bundle">
+            <p class="mono reg-col-title">02 · Take it home</p>
+            <div class="reg-file mono">
+              <span class="reg-file-icon">▣</span>
+              <span class="reg-file-name">wanderer.distro</span>
+              <span class="reg-file-meta dim">4 capsules · signed · permissions declared</span>
+            </div>
+            <div class="reg-ctas">
+              <button class="btn btn-primary" disabled>Download the file</button>
+              <button class="btn" disabled>Slot it into your Astrid →</button>
+            </div>
+            <p class="mono reg-note dim">
+              One file, ready to install anywhere Astrid runs, or hand it
+              straight to the app and skip the download
+            </p>
+          </section>
+        </div>
+      </div>
+    </section>
   </main>
 </Base>
 
@@ -121,10 +206,12 @@ const registryRows = [
   .reg-honesty {
     display: inline-block;
     font-size: var(--step--1);
+    line-height: 1.7;
     color: var(--audit);
     border: 1px dashed color-mix(in srgb, var(--audit) 45%, transparent);
     border-radius: 8px;
     padding: 0.5em 1em;
+    max-width: 56ch;
   }
 
   /* the ghost: visibly present, deliberately untouchable */
@@ -135,11 +222,192 @@ const registryRows = [
     filter: saturate(0.7);
   }
 
+  /* toolbar: the controls the live registry will have, shown honest-dead */
+  .reg-toolbar {
+    display: flex;
+    gap: var(--s-2);
+    align-items: center;
+    margin-bottom: var(--s-2);
+  }
+
+  .reg-search {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.65em 1em;
+    font-size: var(--step--1);
+    color: var(--text-faint);
+    background: var(--bg-raised);
+  }
+
+  .reg-search-glyph {
+    font-size: 1.1em;
+  }
+
+  .reg-sort {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.65em 1em;
+    font-size: var(--step--1);
+    color: var(--text-faint);
+    background: var(--bg-raised);
+  }
+
+  .reg-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1);
+    margin-bottom: var(--s-4);
+  }
+
+  .reg-tag {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.25em 0.9em;
+  }
+
+  .reg-tag[data-on='true'] {
+    color: var(--capsule);
+    border-color: color-mix(in srgb, var(--capsule) 50%, transparent);
+  }
+
+  /* spotlight: three wide cards before the shelf */
+  .reg-spot-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-3);
+    margin-bottom: var(--s-3);
+  }
+
+  @media (max-width: 900px) {
+    .reg-spot-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .reg-spot {
+    border-color: color-mix(in srgb, var(--capsule) 35%, var(--line));
+  }
+
+  /* the shelf: dynamic card grid, dense but scannable */
+  .reg-grid-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+    gap: var(--s-3);
+  }
+
+  .reg-card {
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+    gap: var(--s-2);
+    padding: var(--s-3);
+  }
+
+  .reg-card-head {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+
+  .reg-glyph {
+    flex: none;
+    width: 2em;
+    height: 2em;
+    display: grid;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--capsule) 40%, transparent);
+    border-radius: 8px;
+    color: var(--capsule);
+    font-size: var(--step--1);
+    text-transform: uppercase;
+  }
+
+  .reg-card-name {
+    font-size: var(--step-0);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .reg-card-ver {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text-faint);
+  }
+
+  .reg-card-desc {
+    font-size: var(--step--1);
+    line-height: 1.5;
+  }
+
+  .reg-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35em;
+  }
+
+  .reg-card-tag {
+    font-size: 0.66rem;
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.12em 0.7em;
+  }
+
+  .reg-card-install {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    font-size: 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.5em 0.8em;
+    background: var(--bg);
+  }
+
+  .reg-card-install code {
+    color: var(--bus);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .reg-copy {
+    margin-left: auto;
+    color: var(--text-faint);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.1em 0.6em;
+    font-size: 0.64rem;
+  }
+
+  .reg-card-by {
+    font-size: 0.68rem;
+  }
+
+  /* the builder: its own section, its own ghost */
+  .reg-builder {
+    margin-top: var(--s-7);
+    border-top: 1px solid var(--line);
+    padding-top: var(--s-5);
+  }
+
+  .reg-builder-title {
+    font-size: var(--step-3);
+    margin-block: var(--s-2) var(--s-3);
+  }
+
   .reg-grid {
     display: grid;
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
     gap: var(--s-3);
-    margin-bottom: var(--s-4);
   }
 
   @media (max-width: 900px) {
@@ -233,38 +501,5 @@ const registryRows = [
   .reg-note {
     font-size: 0.72rem;
     line-height: 1.5;
-  }
-
-  .reg-registry {
-    border-top: 1px solid var(--line);
-    padding-top: var(--s-3);
-  }
-
-  .reg-rows {
-    display: grid;
-  }
-
-  .reg-row {
-    display: grid;
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) minmax(0, 5fr);
-    gap: var(--s-2);
-    padding: var(--s-2);
-    border-top: 1px solid var(--line);
-    font-size: var(--step--1);
-  }
-
-  .reg-row:last-child {
-    border-bottom: 1px solid var(--line);
-  }
-
-  .reg-row-name {
-    color: var(--capsule);
-  }
-
-  @media (max-width: 620px) {
-    .reg-row {
-      grid-template-columns: 1fr;
-      gap: 0.2em;
-    }
   }
 </style>
