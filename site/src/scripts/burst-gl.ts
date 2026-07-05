@@ -80,6 +80,9 @@ uniform vec3 uBaseLo;
 uniform vec3 uBaseHi;
 uniform vec3 uAccA;
 uniform vec3 uAccB;
+// x = ambient floor, y = lighting gain: Astrid's deep-shadow drama vs
+// Unicity's flat tone-on-tone poster range
+uniform vec2 uLight;
 out vec4 outColor;
 
 float hash(vec2 p) {
@@ -92,8 +95,7 @@ void main() {
   vec3 base = mix(uBaseLo, uBaseHi, vShade);
   if (vAccent > 1.5) base = uAccA * (1.0 + uEnergy * 0.7);
   else if (vAccent > 0.5) base = uAccB * (1.0 + uEnergy * 0.7);
-  // wide dynamic range: shadowed faces sink toward the bg, lit faces glow
-  vec3 col = base * (0.26 + 1.15 * vLight);
+  vec3 col = base * (uLight.x + uLight.y * vLight);
   // surface tooth; the full-frame film grain is a separate pass
   col += (hash(gl_FragCoord.xy + fract(uTime) * 61.7) - 0.5) * 0.03;
   // fade the far rim out so the burst dissolves instead of hard-stopping
@@ -168,6 +170,7 @@ interface Palette {
   a: [number, number, number];
   b: [number, number, number];
   grain: [number, number, number];
+  light: [number, number];
 }
 
 const PALETTES: Record<'astrid' | 'unicity', Palette> = {
@@ -177,13 +180,20 @@ const PALETTES: Record<'astrid' | 'unicity', Palette> = {
     a: [0.30, 0.55, 0.52],
     b: [0.55, 0.44, 0.82],
     grain: [0.62, 0.64, 0.78],
+    // wide range: shadowed faces sink toward the dark bg, lit faces glow
+    light: [0.26, 1.15],
   },
   unicity: {
-    lo: [0.50, 0.20, 0.0],
-    hi: [0.85, 0.37, 0.02],
-    a: [0.98, 0.95, 0.90],
-    b: [0.114, 0.114, 0.114],
-    grain: [1.0, 0.88, 0.76],
+    // tone-on-tone like their hero: bars sit just deeper and just brighter
+    // than the #ff6f00 ground, never brown, never black
+    lo: [0.82, 0.32, 0.02],
+    hi: [1.0, 0.56, 0.16],
+    a: [1.0, 0.97, 0.92],
+    b: [0.66, 0.22, 0.01],
+    grain: [1.0, 0.85, 0.68],
+    // flat poster range: a shallow ambient-to-lit ramp keeps every face
+    // inside the orange family
+    light: [0.74, 0.42],
   },
 };
 
@@ -429,6 +439,7 @@ export function startBurst(
   const uBaseHi = gl.getUniformLocation(prog, 'uBaseHi');
   const uAccA = gl.getUniformLocation(prog, 'uAccA');
   const uAccB = gl.getUniformLocation(prog, 'uAccB');
+  const uLight = gl.getUniformLocation(prog, 'uLight');
   const uBlurTex = gl.getUniformLocation(blurProg, 'uTex');
   const uBlurStep = gl.getUniformLocation(blurProg, 'uStep');
   const uBlitTex = gl.getUniformLocation(blitProg, 'uTex');
@@ -591,6 +602,7 @@ export function startBurst(
         gl.uniform3fv(uBaseHi, pal.hi);
         gl.uniform3fv(uAccA, pal.a);
         gl.uniform3fv(uAccB, pal.b);
+        gl.uniform2fv(uLight, pal.light);
         gl.uniform1f(uScale, P.scale);
         gl.uniformMatrix3fv(uTilt, false, tiltOf(pitch, yaw));
         gl.uniform3fv(uCenter, centre);
