@@ -181,6 +181,10 @@ const buildIt = [
         <span class="mono start-link-k">GitHub</span>
         <span>The kernel, the SDK, the capsules, the RFCs. All of it.</span>
       </a>
+      <a class="card start-link" href="/siri/">
+        <span class="mono start-link-k">Hey Siri</span>
+        <span>Ask the Astrid Book by voice, on any iPhone, no app</span>
+      </a>
     </section>
   </main>
 </Base>
@@ -384,14 +388,8 @@ const buildIt = [
 
   .start-links {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
     gap: var(--s-3);
-  }
-
-  @media (max-width: 860px) {
-    .start-links {
-      grid-template-columns: 1fr;
-    }
   }
 
   .start-link {
