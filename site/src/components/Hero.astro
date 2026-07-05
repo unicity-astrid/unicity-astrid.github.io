@@ -8,7 +8,7 @@
 <header class="hero" id="top">
   <div class="hero-stage">
     <div class="wrap hero-inner">
-    <p class="eyebrow">Astrid</p>
+    <p class="eyebrow">Astrid <span class="hero-by">by Unicity</span></p>
     <h1 class="hero-title">
       Let your AI<br /><span class="gradient-text">actually do things</span>.
     </h1>
@@ -70,6 +70,15 @@
       opacity: 1;
       translate: none;
     }
+  }
+
+  /* Maker's mark: quiet, riding the eyebrow, never competing with the
+     headline. Credibility, not co-billing. */
+  .hero-by {
+    color: var(--text-faint);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0.02em;
   }
 
   .hero-title {
