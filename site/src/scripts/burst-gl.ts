@@ -51,7 +51,7 @@ void main() {
   // own angle, so the flex is a true arc that straightens as the wheel
   // settles.
   float lag = clamp(uWheel.y * aSeed.w, -0.8, 0.8);
-  float ang = aSeed.x + uWheel.x - lag * (0.25 + 0.75 * aPos.x * aPos.x);
+  float ang = aSeed.x + uWheel.x - lag * (0.15 + 0.85 * aPos.x * aPos.x);
 
   vec3 local = vec3(aSeed.y + aPos.x * aSeed.z, aPos.y * aDim.x, aPos.z * aDim.y);
   float c = cos(ang), s = sin(ang);
@@ -212,8 +212,11 @@ const rand = (i: number, salt: number): number => {
 };
 
 // unit plank (radial axis x in [0,1]); six faces, all wound CCW-outward so
-// backface culling replaces the depth test within a wheel
-function boxGeometry(): { pos: Float32Array; nrm: Float32Array } {
+// backface culling replaces the depth test within a wheel. The long faces
+// are SEGMENTED along x: the vertex shader rotates each station by its own
+// lagged angle, and a curve needs stations to curve through — two end
+// vertices can only ever draw a straight (rigid) plank.
+function boxGeometry(segs = 10): { pos: Float32Array; nrm: Float32Array } {
   const p: number[] = [];
   const n: number[] = [];
   const quad = (
@@ -223,10 +226,14 @@ function boxGeometry(): { pos: Float32Array; nrm: Float32Array } {
     for (let i = 0; i < 6; i++) n.push(...nn);
   };
   const h = 0.5;
-  quad([0, -h, h], [1, -h, h], [1, h, h], [0, h, h], [0, 0, 1]); // front
-  quad([1, -h, -h], [0, -h, -h], [0, h, -h], [1, h, -h], [0, 0, -1]); // back
-  quad([0, h, h], [1, h, h], [1, h, -h], [0, h, -h], [0, 1, 0]); // top
-  quad([0, -h, -h], [1, -h, -h], [1, -h, h], [0, -h, h], [0, -1, 0]); // bottom
+  for (let i = 0; i < segs; i++) {
+    const x0 = i / segs;
+    const x1 = (i + 1) / segs;
+    quad([x0, -h, h], [x1, -h, h], [x1, h, h], [x0, h, h], [0, 0, 1]); // front
+    quad([x1, -h, -h], [x0, -h, -h], [x0, h, -h], [x1, h, -h], [0, 0, -1]); // back
+    quad([x0, h, h], [x1, h, h], [x1, h, -h], [x0, h, -h], [0, 1, 0]); // top
+    quad([x0, -h, -h], [x1, -h, -h], [x1, -h, h], [x0, -h, h], [0, -1, 0]); // bottom
+  }
   quad([1, -h, h], [1, -h, -h], [1, h, -h], [1, h, h], [1, 0, 0]); // tip
   quad([0, -h, -h], [0, -h, h], [0, h, h], [0, h, -h], [-1, 0, 0]); // inner cap
   return { pos: new Float32Array(p), nrm: new Float32Array(n) };
@@ -398,6 +405,7 @@ export function startBurst(
 
   gl.useProgram(prog);
   const geo = boxGeometry();
+  const vertCount = geo.pos.length / 3;
   const wheels = wheelData();
 
   const makeBuf = (data: Float32Array) => {
@@ -621,7 +629,7 @@ export function startBurst(
         gl.bindFramebuffer(gl.FRAMEBUFFER, wheelFbo[i]);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.bindVertexArray(vaos[i]);
-        gl.drawArraysInstanced(gl.TRIANGLES, 0, 36, wheels[i].count);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, vertCount, wheels[i].count);
 
         // pass 2: true Gaussian, horizontal then vertical, per-wheel radius
         const s = BLUR_STRENGTH[i];
