@@ -3,20 +3,25 @@
  *  needs to hear: Astrid goes UNDER the agent you already run. Platform
  *  rows like a download table — Claude is real today (the extension
  *  exists); the rest are stated as coming, never implied as shipped.
- *  The Claude spark here is a stylized placeholder — swap in the official
- *  brand asset before the site goes public. */
+ *  Marks are the platforms' own (nominative use), rendered currentColor. */
+import claudeMark from '../assets/brands/claude.svg?raw';
+import codexMark from '../assets/brands/codex.svg?raw';
+import hermesMark from '../assets/brands/hermes.svg?raw';
+import openclawMark from '../assets/brands/openclaw.svg?raw';
+
 const platforms = [
   {
     id: 'claude',
     name: 'Claude',
+    mark: claudeMark,
     note: 'Extension available today',
     href: 'https://github.com/unicity-astrid',
     cta: 'get it →',
     live: true,
   },
-  { id: 'codex', name: 'Codex', note: 'Coming', live: false },
-  { id: 'hermes', name: 'Hermes', note: 'Coming', live: false },
-  { id: 'openclaw', name: 'OpenClaw', note: 'Coming', live: false },
+  { id: 'codex', name: 'Codex', mark: codexMark, note: 'Coming', live: false },
+  { id: 'hermes', name: 'Hermes', mark: hermesMark, note: 'Coming', live: false },
+  { id: 'openclaw', name: 'OpenClaw', mark: openclawMark, note: 'Coming', live: false },
 ];
 ---
 
@@ -45,25 +50,7 @@ const platforms = [
         {
           platforms.map((p) => (
             <div class="bring-row" role="listitem" data-live={String(p.live)}>
-              <span class="bring-logo" aria-hidden="true">
-                {p.id === 'claude' ? (
-                  <svg viewBox="-12 -12 24 24" width="22" height="22">
-                    {Array.from({ length: 11 }, (_, i) => (
-                      <rect
-                        x="-1.05"
-                        y="-10.6"
-                        width="2.1"
-                        height={5.4 + ((i * 7) % 4) * 0.8}
-                        rx="1.05"
-                        fill="currentColor"
-                        transform={`rotate(${i * (360 / 11)})`}
-                      />
-                    ))}
-                  </svg>
-                ) : (
-                  <span class="bring-glyph mono">{p.name[0]}</span>
-                )}
-              </span>
+              <span class="bring-logo" aria-hidden="true" set:html={p.mark} />
               <span class="bring-name">{p.name}</span>
               <span class="mono bring-note dim">{p.note}</span>
               {p.live && p.href ? (
@@ -135,15 +122,11 @@ const platforms = [
     color: var(--text);
   }
 
-  .bring-glyph {
+  /* The marks ship at 1em; pin them to the row's icon size. :global because
+     the SVGs arrive via set:html, outside Astro's scoping. */
+  .bring-logo :global(svg) {
     width: 22px;
     height: 22px;
-    display: inline-grid;
-    place-items: center;
-    border: 1px solid var(--line-bright);
-    border-radius: 6px;
-    font-size: 0.72rem;
-    color: var(--text-dim);
   }
 
   .bring-name {
