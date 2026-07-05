@@ -70,6 +70,17 @@
     gap: var(--s-4);
   }
 
+  /* Phones: the chips lose their own column and stack under the copy — as
+     a sparse tower they read as stray buttons. A tight wrapping row reads
+     as what they are: a set of plugs on the same bus. */
+  @media (max-width: 640px) {
+    .endpoints {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: var(--s-2);
+    }
+  }
+
   /* the heartbeat monitor: beats are real routed messages; disabling the
      part flatlines it — no words needed */
   .dk-ekg {

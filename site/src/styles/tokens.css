@@ -68,3 +68,11 @@
   /* the bus spine: x-position of the kernel rail, from the viewport left */
   --rail-x: clamp(20px, 6vw, 96px);
 }
+
+/* Phones: the spine hugs the edge — a gutter is a luxury a 390px screen
+   can't pay for, and content must never share pixels with the rail. */
+@media (max-width: 640px) {
+  :root {
+    --rail-x: 12px;
+  }
+}

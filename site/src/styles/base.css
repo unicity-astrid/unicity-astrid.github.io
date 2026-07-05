@@ -91,11 +91,12 @@ main {
   margin-inline: auto;
 }
 
-/* Phones: the rail hugs the edge; reclaim most of its gutter and the wrap's
-   side margins — every horizontal pixel is content now. */
+/* Phones: the rail hugs the edge (12px, see tokens.css), so content gets
+   real clearance from it AND more total width than the desktop gutter
+   allowed. */
 @media (max-width: 640px) {
   main {
-    padding-left: calc(var(--rail-x) + 0.25rem);
+    padding-left: calc(var(--rail-x) + 0.75rem);
   }
 
   .wrap {
