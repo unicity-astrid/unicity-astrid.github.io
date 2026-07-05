@@ -32,16 +32,24 @@
     </p>
     <div class="pill-consent mono" id="pill-endpoint" hidden>
       <p class="pill-ep-note">
-        point the agent at any OpenAI-compatible endpoint — Ollama or LM
-        Studio on localhost, or a hosted API. The key stays in this tab's
-        memory, is sent only to the URL you give, and is never saved.
+        bring a model you already have. keys and URLs live in this tab's
+        memory only, are sent nowhere but the provider you pick, and are
+        never saved.
       </p>
-      <input class="pill-ep mono" id="pill-ep-url" type="url" placeholder="http://localhost:11434/v1" autocomplete="off" spellcheck="false" />
-      <input class="pill-ep mono" id="pill-ep-key" type="password" placeholder="API key (optional)" autocomplete="off" />
-      <input class="pill-ep mono" id="pill-ep-model" type="text" placeholder="model name (optional)" autocomplete="off" spellcheck="false" />
-      <div>
-        <button class="pill-enable mono" id="pill-ep-connect" type="button">connect</button>
+      <div id="pill-ep-found" hidden></div>
+      <div class="pill-ep-row">
+        <button class="pill-enable mono" id="pill-ep-anthropic" type="button">Anthropic key…</button>
+        <button class="pill-enable mono" id="pill-ep-openai" type="button">OpenAI key…</button>
+        <button class="pill-enable mono" id="pill-ep-custom" type="button">custom URL…</button>
         <button class="pill-enable mono" id="pill-ep-cancel" type="button">back</button>
+      </div>
+      <div id="pill-ep-manual" hidden>
+        <input class="pill-ep mono" id="pill-ep-url" type="url" placeholder="http://localhost:11434/v1" autocomplete="off" spellcheck="false" />
+        <input class="pill-ep mono" id="pill-ep-key" type="password" placeholder="API key (optional)" autocomplete="off" />
+        <input class="pill-ep mono" id="pill-ep-model" type="text" placeholder="model name (optional)" autocomplete="off" spellcheck="false" />
+        <div>
+          <button class="pill-enable mono" id="pill-ep-connect" type="button">connect</button>
+        </div>
       </div>
     </div>
   </div>
@@ -289,6 +297,42 @@
     border-color: var(--bus);
   }
 
+  .pill-ep-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: var(--s-1);
+  }
+
+  /* "LM Studio is running — connect it?" detection card */
+  :global(.pill-ep-card) {
+    display: grid;
+    gap: 0.4rem;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.4rem;
+    border: 1px solid color-mix(in srgb, var(--bus) 40%, var(--line));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bus) 6%, transparent);
+  }
+
+  :global(.pill-ep-card .pill-ep-card-row) {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  :global(.pill-ep-card select) {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.72rem;
+    padding: 0.4em 0.6em;
+  }
+
   .pill-enable {
     background: none;
     border: 1px solid var(--line);
@@ -456,6 +500,83 @@
   }
 
   const epForm = $('pill-endpoint');
+  const epFound = $('pill-ep-found');
+  const epManual = $('pill-ep-manual');
+  const epUrl = $('pill-ep-url') as HTMLInputElement;
+  const epKey = $('pill-ep-key') as HTMLInputElement;
+  const epModel = $('pill-ep-model') as HTMLInputElement;
+  let epFlavor: 'openai' | 'anthropic' = 'openai';
+  let epLabel: string | undefined;
+
+  function connectBrought(e: Parameters<typeof connectEndpoint>[1], from: string): void {
+    if (!bridge) return;
+    mode.hidden = false;
+    mode.textContent = `checking ${from}…`;
+    connectEndpoint(bridge, e).then(
+      () => {
+        epForm.hidden = true;
+        chip.dataset.on = 'true';
+        chip.textContent = '✦ AI on';
+        input.placeholder = 'ask the agent…';
+        mode.textContent = `${from} is connected. the key (if any) lives only in this tab’s memory and is sent only to that provider.`;
+      },
+      (err: unknown) => {
+        mode.textContent = `could not reach ${from}: ${err instanceof Error ? err.message : err}. check the URL (https or localhost) and any CORS setting on your server.`;
+      },
+    );
+  }
+
+  // ---- "looks like you already run a model" — the llm-connect scan ----
+  // Probes the well-known local servers (LM Studio, Ollama, llama.cpp,
+  // Jan). A hit renders a one-click card with a model picker; a miss
+  // renders nothing. Detection can't see servers with CORS disabled,
+  // which is why the manual paths stay.
+  let scanned = false;
+  function scanLocal(): void {
+    if (scanned) return;
+    scanned = true;
+    void import('../scripts/llm-connect').then(({ detectLocalProviders }) =>
+      detectLocalProviders().then((list) => {
+        if (!list.length) return;
+        epFound.innerHTML = '';
+        for (const p of list) {
+          const card = document.createElement('div');
+          card.className = 'pill-ep-card';
+          const line = document.createElement('span');
+          line.textContent = `looks like ${p.label} is running on this machine — connect it to this site?`;
+          const row = document.createElement('div');
+          row.className = 'pill-ep-card-row';
+          const sel = document.createElement('select');
+          for (const m of p.models) {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m + (m === p.loaded ? ' · loaded' : '');
+            sel.append(opt);
+          }
+          if (p.loaded) sel.value = p.loaded;
+          const go = document.createElement('button');
+          go.type = 'button';
+          go.className = 'pill-enable mono';
+          go.textContent = 'connect →';
+          go.addEventListener('click', () => {
+            connectBrought(
+              { base: p.base, model: sel.value, flavor: p.flavor, label: p.label },
+              p.label,
+            );
+          });
+          row.append(sel, go);
+          card.append(line, row);
+          epFound.append(card);
+        }
+        epFound.hidden = false;
+      }),
+    );
+  }
+
+  function openEndpointForm(): void {
+    epForm.hidden = false;
+    scanLocal();
+  }
 
   chip.addEventListener('click', () => {
     const s = agentState();
@@ -465,7 +586,7 @@
     if (!webGpuAvailable()) {
       // no GPU for a downloaded model, but a brought model lives elsewhere:
       // the endpoint path stays fully available
-      epForm.hidden = false;
+      openEndpointForm();
       return;
     }
     void pickModelSize().then((size) => {
@@ -483,33 +604,54 @@
   // ---- bring-your-own-model ----
   $('pill-alt').addEventListener('click', () => {
     consent.hidden = true;
-    epForm.hidden = false;
+    openEndpointForm();
   });
   $('pill-ep-cancel').addEventListener('click', () => {
     epForm.hidden = true;
+    epManual.hidden = true;
     if (webGpuAvailable()) consent.hidden = false;
     else mode.hidden = false;
   });
+  // Cloud presets prefill the manual form; the visitor only types a key.
+  $('pill-ep-anthropic').addEventListener('click', () => {
+    epFlavor = 'anthropic';
+    epLabel = 'Anthropic';
+    epUrl.value = 'https://api.anthropic.com';
+    epKey.placeholder = 'sk-ant-… (required)';
+    epModel.value = '';
+    epModel.placeholder = 'claude-haiku-4-5';
+    epManual.hidden = false;
+    epKey.focus();
+  });
+  $('pill-ep-openai').addEventListener('click', () => {
+    epFlavor = 'openai';
+    epLabel = 'OpenAI';
+    epUrl.value = 'https://api.openai.com/v1';
+    epKey.placeholder = 'sk-… (required)';
+    epModel.value = '';
+    epModel.placeholder = 'gpt-5-mini';
+    epManual.hidden = false;
+    epKey.focus();
+  });
+  $('pill-ep-custom').addEventListener('click', () => {
+    epFlavor = 'openai';
+    epLabel = undefined;
+    epUrl.value = '';
+    epKey.placeholder = 'API key (optional)';
+    epModel.placeholder = 'model name (optional)';
+    epManual.hidden = false;
+    epUrl.focus();
+  });
   $('pill-ep-connect').addEventListener('click', () => {
-    if (!bridge) return;
-    const base = ($('pill-ep-url') as HTMLInputElement).value.trim();
+    const base = epUrl.value.trim();
     if (!base) return;
-    const key = ($('pill-ep-key') as HTMLInputElement).value.trim() || undefined;
-    const model = ($('pill-ep-model') as HTMLInputElement).value.trim() || undefined;
-    mode.hidden = false;
-    mode.textContent = 'checking the endpoint…';
-    connectEndpoint(bridge, { base, key, model }).then(
-      () => {
-        epForm.hidden = true;
-        chip.dataset.on = 'true';
-        chip.textContent = '✦ AI on';
-        input.placeholder = 'ask the agent…';
-        mode.textContent =
-          'your model is connected. the key (if any) lives only in this tab’s memory and is sent only to your endpoint.';
-      },
-      (err: unknown) => {
-        mode.textContent = `could not reach it: ${err instanceof Error ? err.message : err}. check the URL (https or localhost) and any CORS setting on your server.`;
-      },
+    const key = epKey.value.trim() || undefined;
+    const model =
+      epModel.value.trim() ||
+      (epFlavor === 'anthropic' ? 'claude-haiku-4-5' : epLabel === 'OpenAI' ? 'gpt-5-mini' : undefined);
+    connectBrought(
+      { base, key, model, flavor: epFlavor, label: epLabel },
+      epLabel ?? 'your endpoint',
     );
   });
 

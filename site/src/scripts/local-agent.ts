@@ -76,11 +76,15 @@ interface Engine {
 }
 
 export interface AgentEndpoint {
-  /** OpenAI-compatible base, e.g. http://localhost:11434/v1 */
+  /** API base, e.g. http://localhost:11434/v1 or https://api.anthropic.com */
   base: string;
   /** memory-only; never persisted */
   key?: string;
   model?: string;
+  /** wire shape; default 'openai' (every local server speaks it) */
+  flavor?: 'openai' | 'anthropic';
+  /** human name for status lines, e.g. 'LM Studio' */
+  label?: string;
 }
 
 let engine: Engine | null = null;
@@ -239,6 +243,22 @@ export async function removeModel(bridge: AstridBridge): Promise<void> {
  */
 export async function connectEndpoint(bridge: AstridBridge, e: AgentEndpoint): Promise<void> {
   const typed = e.base.replace(/\/+$/, '');
+  if (e.flavor === 'anthropic') {
+    // Anthropic's browser opt-in path: different auth headers, and the
+    // model list lives at /v1/models off the API root.
+    if (!e.key) throw new Error('an Anthropic key is required');
+    const res = await fetch(`${typed}/v1/models`, {
+      headers: {
+        'x-api-key': e.key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+    });
+    if (!res.ok) throw new Error(`Anthropic answered ${res.status} — check the key`);
+    endpoint = { ...e, base: typed };
+    publishStatus(bridge, 'ready', `your model · Anthropic · ${e.model || 'claude-haiku-4-5'}`);
+    return;
+  }
   const headers: Record<string, string> = {};
   if (e.key) headers.Authorization = `Bearer ${e.key}`;
   const candidates = /\/v\d+$/.test(typed) ? [typed] : [typed, `${typed}/v1`];
@@ -264,8 +284,8 @@ export async function connectEndpoint(bridge: AstridBridge, e: AgentEndpoint): P
   }
   if (!base) throw new Error(lastError);
   endpoint = { ...e, base };
-  const host = new URL(base).host;
-  publishStatus(bridge, 'ready', `your model · ${host}${e.model ? ` · ${e.model}` : ''}`);
+  const name = e.label || new URL(base).host;
+  publishStatus(bridge, 'ready', `your model · ${name}${e.model ? ` · ${e.model}` : ''}`);
 }
 
 export function disconnectEndpoint(bridge: AstridBridge): void {
@@ -280,21 +300,48 @@ async function generate(
   onDelta: (full: string, tokens: number) => void,
 ): Promise<string> {
   if (endpoint) {
-    const headers: Record<string, string> = { 'content-type': 'application/json' };
-    if (endpoint.key) headers.Authorization = `Bearer ${endpoint.key}`;
-    const res = await fetch(`${endpoint.base}/chat/completions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: endpoint.model || 'default',
-        messages,
-        temperature: 0.55,
-        frequency_penalty: 0.4,
-        presence_penalty: 0.3,
-        max_tokens: maxTokens,
-        stream: true,
-      }),
-    });
+    let res: Response;
+    if (endpoint.flavor === 'anthropic') {
+      // Messages API: system prompt is top-level, roles are user/assistant
+      // only, and it rejects unknown params (no penalties here).
+      const system = messages
+        .filter((m) => m.role === 'system')
+        .map((m) => m.content)
+        .join('\n\n');
+      res = await fetch(`${endpoint.base}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': endpoint.key ?? '',
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: endpoint.model || 'claude-haiku-4-5',
+          system: system || undefined,
+          messages: messages.filter((m) => m.role !== 'system'),
+          max_tokens: maxTokens,
+          temperature: 0.55,
+          stream: true,
+        }),
+      });
+    } else {
+      const headers: Record<string, string> = { 'content-type': 'application/json' };
+      if (endpoint.key) headers.Authorization = `Bearer ${endpoint.key}`;
+      res = await fetch(`${endpoint.base}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: endpoint.model || 'default',
+          messages,
+          temperature: 0.55,
+          frequency_penalty: 0.4,
+          presence_penalty: 0.3,
+          max_tokens: maxTokens,
+          stream: true,
+        }),
+      });
+    }
     if (!res.ok || !res.body) throw new Error(`endpoint answered ${res.status}`);
     // SSE: `data: {...}` lines, terminated by `data: [DONE]`. Events can
     // split across network chunks, so buffer to the last newline.
@@ -313,8 +360,17 @@ async function generate(
         const data = line.startsWith('data:') ? line.slice(5).trim() : '';
         if (!data || data === '[DONE]') continue;
         try {
-          const json = JSON.parse(data) as { choices?: { delta?: { content?: string } }[] };
-          const t = json.choices?.[0]?.delta?.content ?? '';
+          const json = JSON.parse(data) as {
+            choices?: { delta?: { content?: string } }[];
+            type?: string;
+            delta?: { type?: string; text?: string };
+          };
+          const t =
+            endpoint.flavor === 'anthropic'
+              ? json.type === 'content_block_delta' && json.delta?.type === 'text_delta'
+                ? (json.delta.text ?? '')
+                : ''
+              : (json.choices?.[0]?.delta?.content ?? '');
           if (!t) continue;
           raw += t;
           n += 1;
