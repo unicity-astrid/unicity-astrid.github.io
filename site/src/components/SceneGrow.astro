@@ -33,6 +33,30 @@ const steps = [
       </p>
       <cite class="mono dim">The Astrid Book, afterword</cite>
     </blockquote>
+
+    <!-- The finale: stop describing the loop and run its last two steps here.
+         The part is the real production prompt-builder capsule; install is a
+         real instantiation + a real capability grant; the proof is the reply
+         on the bus and the entries on the audit chain. -->
+    <div class="card grow-live" id="grow-live" data-state="idle">
+      <div class="grow-live-head">
+        <p class="mono grow-live-k">Steps 04 and 05, live</p>
+        <p class="grow-live-lede dim">
+          This page's OS doesn't have a prompt-assembly part. Install the real
+          one, the same sealed WebAssembly that runs in production, and watch
+          the OS gain the ability without restarting.
+        </p>
+      </div>
+      <div class="grow-live-row">
+        <button class="btn btn-primary" id="grow-install">Install the part, live →</button>
+        <button class="btn grow-remove" id="grow-remove">Remove it</button>
+        <p class="mono grow-status" id="grow-status" aria-live="polite"></p>
+      </div>
+      <div class="grow-proof" id="grow-proof" hidden>
+        <ul class="mono grow-journal" id="grow-journal"></ul>
+        <p class="mono grow-receipt dim" id="grow-receipt"></p>
+      </div>
+    </div>
     <div class="grow-cta">
       <a class="btn btn-primary" href="/playground/">
         Build one right now, in this tab →
@@ -121,4 +145,227 @@ const steps = [
     font-style: normal;
     font-size: var(--step--1);
   }
+
+  /* the live finale */
+  .grow-live {
+    max-width: 46rem;
+    padding: var(--s-3);
+    margin-bottom: var(--s-5);
+    border-color: color-mix(in srgb, var(--capsule) 35%, var(--line));
+  }
+
+  .grow-live-k {
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--capsule);
+    margin-bottom: var(--s-1);
+  }
+
+  .grow-live-lede {
+    font-size: var(--step--1);
+    line-height: 1.55;
+    margin-bottom: var(--s-3);
+  }
+
+  .grow-live-row {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    flex-wrap: wrap;
+  }
+
+  .grow-status {
+    font-size: var(--step--1);
+    color: var(--text-dim);
+  }
+
+  #grow-live[data-state='installed'] .grow-status {
+    color: var(--capsule);
+  }
+
+  .grow-remove {
+    display: none;
+  }
+
+  #grow-live[data-state='installed'] .grow-remove {
+    display: inline-flex;
+  }
+
+  #grow-live[data-state='installed'] #grow-install {
+    display: none;
+  }
+
+  .grow-proof {
+    margin-top: var(--s-3);
+    border-top: 1px solid var(--line);
+    padding-top: var(--s-2);
+  }
+
+  .grow-journal {
+    list-style: none;
+    margin: 0 0 var(--s-2);
+    padding: 0;
+    font-size: 0.7rem;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+
+  .grow-journal li::before {
+    content: '· ';
+    color: var(--capsule);
+  }
+
+  .grow-receipt {
+    font-size: 0.72rem;
+    line-height: 1.6;
+  }
 </style>
+
+<script>
+  import { onKernel, kernel } from '../scripts/kernel';
+  import type { HostCall } from '../scripts/showcase-host';
+
+  // Module state survives client-router navigations; elements don't. The
+  // capsule root is held here so "installed" is a fact about the kernel,
+  // not about the DOM that happened to render it.
+  const SOURCE = 'capsule-prompt-builder';
+  const TOPIC = 'prompt_builder.v1.request.assemble';
+  let root: { astridHookTrigger(a: string, p: Uint8Array): unknown } | null = null;
+  let journal: HostCall[] = [];
+  let tokenId: string | null = null;
+  let assembled: string | null = null;
+  let watching = false;
+  let busy = false;
+  let status = '';
+
+  const $ = (id: string) => document.getElementById(id);
+
+  function render(): void {
+    const live = $('grow-live');
+    if (!live) return;
+    live.dataset.state = root ? 'installed' : 'idle';
+    const s = $('grow-status');
+    if (s) s.textContent = status;
+    const btn = $('grow-install') as HTMLButtonElement | null;
+    if (btn) btn.disabled = busy || !kernel();
+    const proof = $('grow-proof');
+    if (proof) proof.hidden = !root;
+    if (!root) return;
+    const ul = $('grow-journal');
+    if (ul) {
+      ul.replaceChildren();
+      for (const c of journal.slice(0, 6)) {
+        const li = document.createElement('li');
+        li.textContent = `${c.iface.replace('astrid:', '')}#${c.fn} ${c.detail}`;
+        ul.append(li);
+      }
+    }
+    const r = $('grow-receipt');
+    if (r) {
+      r.textContent =
+        `${journal.length} real host calls · reply carried on the bus` +
+        `${assembled ? '' : ' (pending)'} · the grant and the check are on the ` +
+        `permanent record. The receipt further down this page counts all of it.`;
+    }
+  }
+
+  async function install(): Promise<void> {
+    const bridge = kernel();
+    if (!bridge || busy || root) return;
+    busy = true;
+    status = 'Fetching the sealed part…';
+    render();
+    try {
+      const [{ instantiate }, { createLiveHost }] = await Promise.all([
+        import('../showcase/prompt-builder.component.js'),
+        import('../scripts/showcase-host'),
+      ]);
+      const host = createLiveHost(bridge, { source: SOURCE, kvNs: 'grow.prompt-builder' });
+      journal = host.journal;
+      status = 'Installing into the running OS…';
+      render();
+      const getCoreModule = async (path: string) =>
+        WebAssembly.compile(await (await fetch(`/showcase/${path}`)).arrayBuffer());
+      const instance = (await instantiate(getCoreModule, host.imports as never)) as {
+        astridHookTrigger(a: string, p: Uint8Array): unknown;
+        astridInstall?(): void;
+      };
+      instance.astridInstall?.();
+
+      // The grant and the check both land on the audit chain: the part gets
+      // a real, revocable permission, not a hard-coded pass.
+      tokenId = await bridge.grant(SOURCE, `topic:${TOPIC}`, 'read');
+      const ok = await bridge.check(SOURCE, `topic:${TOPIC}`, 'read');
+      if (!ok) throw new Error('capability check failed');
+
+      if (!watching) {
+        watching = true;
+        bridge.subscribe('prompt_builder.v1.response.assemble', (_t, json) => {
+          assembled = json;
+          render();
+        });
+      }
+      assembled = null;
+
+      // Use the new ability immediately: one real assemble request through
+      // the capsule's genuine hook entrypoint.
+      instance.astridHookTrigger(
+        'handle_assemble',
+        new TextEncoder().encode(
+          JSON.stringify({
+            system_prompt: 'You are Astrid, a secure agent runtime assistant.',
+            request_id: 'grow-finale-0001',
+            model: 'claude-fable-5',
+            provider: 'anthropic',
+            messages: [{ role: 'user', content: 'What did this page just gain?' }],
+          }),
+        ),
+      );
+      root = instance;
+      status = 'Installed. The OS just gained prompt assembly, no restart.';
+    } catch (err) {
+      status = `Couldn't install: ${err instanceof Error ? err.message : String(err)}`;
+      root = null;
+    } finally {
+      busy = false;
+      render();
+    }
+  }
+
+  async function remove(): Promise<void> {
+    const bridge = kernel();
+    if (!root) return;
+    root = null;
+    journal = [];
+    assembled = null;
+    if (tokenId && bridge?.revoke) {
+      try {
+        await bridge.revoke(tokenId);
+      } catch (err) {
+        console.warn('[astrid] grow revoke failed:', err);
+      }
+    }
+    tokenId = null;
+    status = 'Removed. The permission is revoked; the record of it stays.';
+    render();
+  }
+
+  function wire(): void {
+    const live = $('grow-live');
+    if (!live || live.dataset.wired) return;
+    live.dataset.wired = '1';
+    $('grow-install')?.addEventListener('click', () => void install());
+    $('grow-remove')?.addEventListener('click', () => void remove());
+    if (!status) status = kernel() ? '' : 'Waiting for the OS in this tab…';
+    render();
+  }
+
+  onKernel((s) => {
+    if (s === 'online' && (!status || status.startsWith('Waiting'))) status = '';
+    if (s === 'offline') status = 'The kernel can’t run in this browser, so this demo sits out.';
+    render();
+  });
+  wire();
+  document.addEventListener('astro:page-load', wire);
+</script>
