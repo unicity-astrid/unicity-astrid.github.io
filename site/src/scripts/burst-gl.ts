@@ -167,8 +167,9 @@ void main() {
 }`;
 
 // The eye's plumage, per brand. Astrid: violet-grey planks, teal/violet
-// accents, cool grain. Unicity: burnt-to-bright orange planks on the orange
-// field (their own hero motif), white and ink-black accents, warm grain.
+// accents, cool grain. Unicity: the AgentSphere motif — a dark environment
+// with orange as the light source; planks ramp from ember to full orange,
+// warm grain.
 interface Palette {
   lo: [number, number, number];
   hi: [number, number, number];
@@ -189,16 +190,16 @@ const PALETTES: Record<'astrid' | 'unicity', Palette> = {
     light: [0.26, 1.15],
   },
   unicity: {
-    // tone-on-tone like their hero: bars hug the #ff6f00 ground — the ramp
-    // is deliberately narrow, no deep dark, no paper white, all mid-orange
-    lo: [0.90, 0.38, 0.04],
-    hi: [1.0, 0.52, 0.12],
-    a: [1.0, 0.84, 0.62],
-    b: [0.76, 0.28, 0.02],
-    grain: [1.0, 0.85, 0.68],
-    // flat poster range: a shallow ambient-to-lit ramp keeps every face
-    // inside the orange family
-    light: [0.82, 0.28],
+    // sphere-glow ramp on the #020202 field: shadowed faces sink into
+    // near-black ember, lit faces burn at brand orange — light comes FROM
+    // the form, never from a bright ground
+    lo: [0.12, 0.04, 0.0],
+    hi: [1.0, 0.435, 0.0],
+    a: [1.0, 0.77, 0.6],
+    b: [0.58, 0.18, 0.0],
+    grain: [1.0, 0.6, 0.3],
+    // wide range, same as astrid: the dark field earns real chiaroscuro
+    light: [0.24, 1.2],
   },
 };
 

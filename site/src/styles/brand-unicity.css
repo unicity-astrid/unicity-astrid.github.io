@@ -1,37 +1,36 @@
 /*
- * The Unicity skin. Same site, same machine — wearing the parent brand,
- * which is not "orange accents on dark": unicity.ai IS orange. Orange as
- * the ground (#ff6f00), white as the ink, thin white rules, black as the
- * counterpoint, Anton display, Geist body, Geist Mono details. Everything
- * routes through the design tokens, so this file is a costume change, not
- * a redesign. The WebGL eye composites transparently, so its dark bars sit
- * on the orange field — the same motif as unicity.ai's own hero.
+ * The Unicity skin, per brand identity v2.1 (June 2026): dark field,
+ * orange as a precise accent, grey as the working surface. Orange never
+ * fills backgrounds — it directs attention, the way the AgentSphere glow
+ * does. Black 1000 ground, Gray 900 surfaces, White 100 ink, Anton
+ * display, Geist body, Geist Mono details. Everything routes through the
+ * design tokens, so this file is a costume change, not a redesign.
  */
 :root[data-brand='unicity'] {
-  /* the ground is orange; depth comes from slightly deeper orange */
-  --bg: #ff6f00;
-  --bg-raised: #fa6a00;
-  --surface: #f06400;
-  --line: #ffffff59;
-  --line-bright: #ffffff8c;
+  /* the ground is Black 1000; elevation steps toward Gray 900 */
+  --bg: #020202;
+  --bg-raised: #141414;
+  --surface: #202020;
+  --line: #333333;
+  --line-bright: #5b5b5b;
 
-  /* ink: white, warm-white, translucent white */
-  --text: #ffffff;
-  --text-dim: #ffe4cc;
-  --text-faint: #ffffffa1;
+  /* ink: White 100 headlines, Gray 400 support, Gray 700 metadata */
+  --text: #fefefe;
+  --text-dim: #a5a5a5;
+  --text-faint: #787878;
 
-  /* the machine, two-tone the way their posters are: white = alive/yes,
-     black = machine/no, burnt orange = the record */
-  --kernel: #1d1d1d;
-  --bus: #ffffff;
-  --bus-dim: #ffffff2e;
-  --capsule: #1d1d1d;
-  --capsule-dim: #1d1d1d24;
-  --grant: #ffffff;
-  --deny: #1d1d1d;
-  --audit: #932d00;
+  /* the machine: grey structure, orange as the single accent — alive
+     things glow orange, refusals go dark orange, the record sits warm */
+  --kernel: #969696;
+  --bus: #ff6f00;
+  --bus-dim: #ff6f002e;
+  --capsule: #ffa966;
+  --capsule-dim: #ffa96624;
+  --grant: #fefefe;
+  --deny: #932d00;
+  --audit: #ff8c33;
 
-  --aurora: linear-gradient(135deg, #ffffff 0%, #ffd9b8 45%, #ffffff 100%);
+  --aurora: linear-gradient(135deg, #ffc599 0%, #ff8c33 45%, #ff6f00 100%);
 
   /* type */
   --font-display: 'Anton', 'Geist Sans', system-ui, sans-serif;
@@ -44,7 +43,8 @@
 }
 
 /* Anton ships one weight; faux-bolding it smears. Let it be itself —
-   heavy, condensed, and uppercase, the way they set it. */
+   heavy, condensed, and uppercase, the way they set it. The tracking is
+   the guideline's own note: slight positive spacing at display sizes. */
 :root[data-brand='unicity'] h1,
 :root[data-brand='unicity'] h2,
 :root[data-brand='unicity'] h3 {

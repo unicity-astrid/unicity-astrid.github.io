@@ -1,6 +1,6 @@
 /**
  * brand — the skin toggle. Astrid's own colours by default; one click wears
- * unicity.ai's brand (blue/black, Anton + Geist) instead. Pure token swap:
+ * Unicity's brand (dark field, orange accent, Anton + Geist) instead. Pure token swap:
  * an attribute on <html> and a lazily loaded font bundle, persisted in
  * localStorage. An inline head script applies the attribute before first
  * paint so a returning visitor never sees the wrong colours flash.
