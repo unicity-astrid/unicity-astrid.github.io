@@ -45,8 +45,8 @@ const kernelEntry = existsSync(kernelPkg)
 
 export default defineConfig({
   // The live host — llms.txt and canonical URLs are built from this, so it
-  // must be where the site actually serves. Update on custom-domain day.
-  site: 'https://unicity-astrid.github.io',
+  // must be where the site actually serves.
+  site: 'https://astridos.org',
   output: 'static',
   markdown: {
     shikiConfig: { theme: 'github-dark-default' },
