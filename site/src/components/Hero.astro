@@ -178,9 +178,13 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
     opacity: 1;
   }
 
+  /* The wordmark's glyphs fill its viewBox edge to edge, so its height IS
+     its cap height — size it just over the eyebrow's caps (~0.65em for the
+     mono face); the scanline texture reads lighter than solid glyphs, so
+     exact cap height would look undersized. */
   .hero-maker a :global(svg) {
     display: block;
-    height: 1.5rem;
+    height: 0.8em;
     width: auto;
   }
 
