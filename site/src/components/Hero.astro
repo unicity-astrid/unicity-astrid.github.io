@@ -3,15 +3,21 @@
  *  first thing that docks onto the rail, and it is literal: the real Astrid
  *  is waking up in this tab. The eye itself lives on the page-wide fixed
  *  layer (CapsuleRing, mounted by the page), not inside the hero. */
+import unicityMark from '../assets/unicity-wordmark.svg?raw';
 ---
 
 <header class="hero" id="top">
   <div class="hero-stage">
     <div class="wrap hero-inner">
     <p class="eyebrow hero-maker">
-      <a href="https://www.unicity.ai" target="_blank" rel="noopener" title="Unicity">
-        <img src="/unicity-logo.svg" alt="Unicity" width="133" height="28" />
-      </a>
+      Astrid <span class="hero-by">by</span>
+      <a
+        href="https://www.unicity.ai"
+        target="_blank"
+        rel="noopener"
+        aria-label="Unicity"
+        set:html={unicityMark}
+      />
     </p>
     <h1 class="hero-title">
       Let your AI<br /><span class="gradient-text">actually do things</span>.
@@ -144,10 +150,25 @@
     }
   }
 
-  /* Maker's mark: the Unicity logo itself — one brand carries the page.
-     Quiet, never competing with the headline. */
+  /* Maker's mark: "Astrid by" and then Unicity's own logo — the product
+     named, the one brand carrying it. Quiet, never competing with the
+     headline. */
+  .hero-maker {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+  }
+
+  .hero-by {
+    color: var(--text-faint);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0.02em;
+  }
+
   .hero-maker a {
-    display: inline-block;
+    display: inline-flex;
+    color: var(--text);
     opacity: 0.85;
     transition: opacity var(--t-fast) var(--ease-out);
   }
@@ -156,9 +177,9 @@
     opacity: 1;
   }
 
-  .hero-maker img {
+  .hero-maker a :global(svg) {
     display: block;
-    height: 1.75rem;
+    height: 1.5rem;
     width: auto;
   }
 

@@ -87,7 +87,9 @@
 <style>
   .pill-wrap {
     position: fixed;
-    bottom: calc(var(--s-3) + env(safe-area-inset-bottom, 0px));
+    /* --pill-lift keeps the pill resting above the footer instead of
+       covering the maker's line; the script measures the overlap. */
+    bottom: calc(var(--s-3) + env(safe-area-inset-bottom, 0px) + var(--pill-lift, 0px));
     left: 50%;
     transform: translateX(-50%);
     z-index: 90;
@@ -546,6 +548,28 @@
   const consent = $('pill-consent');
 
   let bridge: AstridBridge | null = null;
+
+  // The pill yields to the footer: as the page bottom scrolls into view the
+  // pill rides up and rests above it, so the maker's line stays readable.
+  // Measured per frame against whatever footer the current page has (the
+  // client router swaps pages under a persistent pill).
+  let liftRaf = 0;
+  const updateLift = () => {
+    liftRaf = 0;
+    const foot = document.querySelector('footer.footer');
+    let lift = 0;
+    if (foot) {
+      lift = Math.max(0, Math.round(window.innerHeight - foot.getBoundingClientRect().top));
+    }
+    wrap.style.setProperty('--pill-lift', `${lift}px`);
+  };
+  const queueLift = () => {
+    if (!liftRaf) liftRaf = requestAnimationFrame(updateLift);
+  };
+  window.addEventListener('scroll', queueLift, { passive: true });
+  window.addEventListener('resize', queueLift, { passive: true });
+  document.addEventListener('astro:page-load', queueLift);
+  queueLift();
 
   onKernel((status, b) => {
     if (status !== 'online' || !b) return;
