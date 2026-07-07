@@ -1,8 +1,8 @@
 ---
-import '@fontsource-variable/space-grotesk';
+import '@fontsource/anton/400.css';
 import '@fontsource-variable/inter';
-import '@fontsource/ibm-plex-mono/400.css';
-import '@fontsource/ibm-plex-mono/500.css';
+import '@fontsource/geist-mono/400.css';
+import '@fontsource/geist-mono/600.css';
 import '../styles/tokens.css';
 import '../styles/brand-unicity.css';
 import '../styles/base.css';
@@ -30,14 +30,16 @@ const { title, description } = Astro.props;
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
-    <meta name="theme-color" content="#07080D" />
+    <meta name="theme-color" content="#060606" />
     <script is:inline>
-      // Apply a persisted brand before first paint — no wrong-colour flash.
-      // Astrid is the default: this is the upstream project's own site.
+      // Unicity is the default skin; only an explicitly stored 'astrid'
+      // opts out. Runs before first paint — no wrong-colour flash.
       try {
-        if (localStorage.getItem('site-brand') === 'unicity')
+        if (localStorage.getItem('site-brand') !== 'astrid')
           document.documentElement.dataset.brand = 'unicity';
-      } catch {}
+      } catch {
+        document.documentElement.dataset.brand = 'unicity';
+      }
     </script>
     <ClientRouter />
   </head>
