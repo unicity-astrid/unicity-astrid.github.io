@@ -3,35 +3,37 @@
  * everything alive happens in capsule-space around it.
  */
 :root {
-  /* surfaces */
-  --bg: #07080d;
-  --bg-raised: #0d0f17;
-  --surface: #10131d;
-  --line: #1c2030;
-  --line-bright: #2a3048;
+  /* surfaces — the Unicity ground: near-black, elevation is translucent
+     white over it, hairlines the same */
+  --bg: #060606;
+  --bg-raised: #0b0b0b;
+  --surface: #131313;
+  --line: #ffffff0d;
+  --line-bright: #ffffff1f;
 
-  /* ink */
-  --text: #e8eaf2;
-  --text-dim: #8a90a6;
-  --text-faint: #565d75;
+  /* ink: white at full, /70 and /45 for hierarchy */
+  --text: #fefefe;
+  --text-dim: #fefefeb3;
+  --text-faint: #fefefe73;
 
-  /* the machine */
-  --kernel: #b8becf;
-  --bus: #5eead4;
-  --bus-dim: #2dd4bf33;
-  --capsule: #a78bfa;
-  --capsule-dim: #a78bfa2e;
-  --grant: #4ade80;
-  --deny: #f59e0b;
-  --audit: #f472b6;
+  /* the machine: grey structure, orange as the single accent — alive things
+     glow orange, refusals read hot, the record sits warm */
+  --kernel: #969696;
+  --bus: #ff6f00;
+  --bus-dim: #ff6f0033;
+  --capsule: #ffa966;
+  --capsule-dim: #ff6f001a;
+  --grant: #fefefe;
+  --deny: #ff6568;
+  --audit: #ff8c33;
 
   /* gradients */
-  --aurora: linear-gradient(135deg, #5eead4 0%, #818cf8 55%, #a78bfa 100%);
+  --aurora: linear-gradient(135deg, #ffc599 0%, #ff8c33 45%, #ff6f00 100%);
 
   /* type */
-  --font-display: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
+  --font-display: 'Anton', 'Inter Variable', system-ui, sans-serif;
   --font-body: 'Inter Variable', 'Inter', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
 
   --step--1: clamp(0.83rem, 0.8rem + 0.15vw, 0.94rem);
   --step-0: clamp(1rem, 0.95rem + 0.25vw, 1.13rem);
@@ -59,7 +61,7 @@
   --t-med: 320ms;
   --t-slow: 640ms;
 
-  --radius: 10px;
+  --radius: 12px;
   --radius-lg: 16px;
 
   --content-w: 72rem;

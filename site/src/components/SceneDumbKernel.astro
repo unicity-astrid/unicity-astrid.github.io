@@ -222,8 +222,8 @@
     ctx.clearRect(0, 0, w, h);
     ctx.lineWidth = 1.5 * dpr;
     ctx.strokeStyle = dead
-      ? css.getPropertyValue('--deny').trim() || '#f87171'
-      : css.getPropertyValue('--bus').trim() || '#5eead4';
+      ? css.getPropertyValue('--deny').trim() || '#ff6568'
+      : css.getPropertyValue('--bus').trim() || '#ff6f00';
     ctx.globalAlpha = online ? 0.9 : 0.35;
     ctx.beginPath();
     for (let i = 0; i < trace.length; i++) {

@@ -542,14 +542,7 @@ export function startBurst(
   const ro = new ResizeObserver(resize);
   ro.observe(canvas);
 
-  // the palette follows the brand toggle live; under reduced motion the
-  // loop rests after one frame, so a brand change must wake it for one more
-  let pal = currentPalette();
-  const onBrand = () => {
-    pal = currentPalette();
-    if (still && !stopped) raf = requestAnimationFrame(frame);
-  };
-  document.addEventListener('brandchange', onBrand);
+  const pal = currentPalette();
 
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let visible = true;
@@ -681,7 +674,6 @@ export function startBurst(
     stop() {
       stopped = true;
       cancelAnimationFrame(raf);
-      document.removeEventListener('brandchange', onBrand);
       ro.disconnect();
       io.disconnect();
       gl.getExtension('WEBGL_lose_context')?.loseContext();

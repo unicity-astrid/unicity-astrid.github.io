@@ -4,7 +4,6 @@ import '@fontsource-variable/inter';
 import '@fontsource/geist-mono/400.css';
 import '@fontsource/geist-mono/600.css';
 import '../styles/tokens.css';
-import '../styles/brand-unicity.css';
 import '../styles/base.css';
 import { ClientRouter } from 'astro:transitions';
 import Hud from '../components/Hud.astro';
@@ -31,16 +30,6 @@ const { title, description } = Astro.props;
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta name="theme-color" content="#060606" />
-    <script is:inline>
-      // Unicity is the default skin; only an explicitly stored 'astrid'
-      // opts out. Runs before first paint — no wrong-colour flash.
-      try {
-        if (localStorage.getItem('site-brand') !== 'astrid')
-          document.documentElement.dataset.brand = 'unicity';
-      } catch {
-        document.documentElement.dataset.brand = 'unicity';
-      }
-    </script>
     <ClientRouter />
   </head>
   <body>
@@ -64,9 +53,7 @@ const { title, description } = Astro.props;
       import { bootKernel } from '../scripts/kernel';
       import { bootSectionCapsules } from '../scripts/section-capsules';
       import { bootFleet } from '../scripts/fleet-host';
-      import { initBrandToggle } from '../scripts/brand';
       import '../scripts/rail';
-      initBrandToggle(document.getElementById('site-skin') as HTMLButtonElement);
       // Boot the real kernel after first paint; the HUD flips when it lands.
       // Then instantiate the section capsules and the agentic fleet that
       // ship with this build.

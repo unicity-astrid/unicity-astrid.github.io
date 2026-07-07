@@ -29,10 +29,27 @@ h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  font-weight: 600;
   line-height: 1.08;
-  letter-spacing: -0.02em;
   text-wrap: balance;
+}
+
+/* Anton ships one weight; set it tight, and uppercase for the big two. h4
+   stays the heavier, non-caps step. */
+h1,
+h2,
+h3 {
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+h1,
+h2 {
+  text-transform: uppercase;
+}
+
+h4 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 p {
@@ -152,18 +169,21 @@ main {
 }
 
 /* buttons */
+/* Unicity buttons: mono pills. Secondary is an orange outline that fills on
+   hover; primary is flat brand orange with the ground as ink, hover steps to
+   #e56200. Orange never fills backgrounds elsewhere; it directs attention. */
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 0.5em;
   padding: 0.72em 1.4em;
   border-radius: 999px;
-  border: 1px solid var(--line-bright);
-  background: var(--surface);
-  color: var(--text);
-  font-family: var(--font-display);
+  border: 1px solid var(--bus);
+  background: none;
+  color: var(--bus);
+  font-family: var(--font-mono);
   font-weight: 500;
-  font-size: var(--step-0);
+  font-size: 0.9em;
   transition:
     border-color var(--t-fast) var(--ease-out),
     background var(--t-fast) var(--ease-out),
@@ -173,6 +193,8 @@ main {
 .btn:hover {
   text-decoration: none;
   border-color: var(--bus);
+  background: var(--bus);
+  color: var(--bg);
   transform: translateY(-1px);
 }
 
@@ -181,14 +203,16 @@ main {
 }
 
 .btn-primary {
-  background: var(--aurora);
+  background: var(--bus);
   border: none;
-  color: #05060a;
-  font-weight: 600;
+  color: var(--bg);
+  font-weight: 400;
 }
 
 .btn-primary:hover {
-  filter: brightness(1.1);
+  background: #e56200;
+  color: var(--bg);
+  filter: none;
   box-shadow: 0 10px 30px -12px color-mix(in srgb, var(--bus) 55%, transparent);
 }
 

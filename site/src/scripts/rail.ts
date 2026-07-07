@@ -148,10 +148,10 @@ export class AstridRail extends HTMLElement {
   private palette() {
     const s = getComputedStyle(this);
     return {
-      rail: s.getPropertyValue('--kernel').trim() || '#B8BECF',
-      line: s.getPropertyValue('--line-bright').trim() || '#2A3048',
-      bus: s.getPropertyValue('--bus').trim() || '#5EEAD4',
-      capsule: s.getPropertyValue('--capsule').trim() || '#A78BFA',
+      rail: s.getPropertyValue('--kernel').trim() || '#969696',
+      line: s.getPropertyValue('--line-bright').trim() || '#ffffff1f',
+      bus: s.getPropertyValue('--bus').trim() || '#ff6f00',
+      capsule: s.getPropertyValue('--capsule').trim() || '#ffa966',
     };
   }
 
