@@ -27,9 +27,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: unicity-astrid/book
-          # Pinned to the branch carrying Your First Capsule (merged in) and
-          # the three-chapter afterword arc; switch to `main` once it merges.
-          ref: docs/lineage-chapter
+          # The book renders from its own main: the three-chapter afterword arc
+          # and Your First Capsule are merged there now.
+          ref: main
           path: astrid-book
       - uses: actions/setup-node@v4
         with:
