@@ -14,9 +14,9 @@ export const GET: APIRoute = ({ site }) => {
   const groups = loadNav('../../astrid-book');
 
   const lines: string[] = [
-    '# Astrid',
+    '# Unicity Astrid OS',
     '',
-    '> Astrid is a secure, open-source home for AI agents: one small kernel that',
+    '> Unicity Astrid OS is a secure, open-source home for AI agents: one small kernel that',
     '> routes messages, checks permissions, and keeps signed records — nothing',
     '> else — with every ability (tools, memory, model providers, frontends)',
     '> packaged as a sealed WebAssembly capsule that declares its permissions up',
@@ -46,8 +46,8 @@ export const GET: APIRoute = ({ site }) => {
   lines.push(
     '## Site',
     '',
-    `- [Install Astrid](${base}/start/): Homebrew, Cargo, or as a Claude Code plugin`,
-    `- [The homepage](${base}/): runs a real Astrid kernel, compiled to WebAssembly, live in the visitor's tab`,
+    `- [Install Unicity Astrid OS](${base}/start/): Homebrew, Cargo, or as a Claude Code plugin`,
+    `- [The homepage](${base}/): runs a real Unicity Astrid OS kernel, compiled to WebAssembly, live in the visitor's tab`,
     '',
     '## Source',
     '',

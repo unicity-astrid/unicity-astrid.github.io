@@ -15,7 +15,7 @@ export const GET: APIRoute = async ({ site }) => {
   const parts: string[] = [
     '# The Astrid Book',
     '',
-    `> The canonical Astrid OS documentation, concatenated. Chapter index: ${base}/llms.txt`,
+    `> The canonical Unicity Astrid OS documentation, concatenated. Chapter index: ${base}/llms.txt`,
     '',
   ];
   for (const item of flatNav(loadNav('../../astrid-book'))) {

@@ -285,7 +285,7 @@ ensure_cli() {
     ok "CLI $(cli_version "$ASTRID") (brew)"
     return 0
   fi
-  die "could not install Astrid (GitHub releases failed; brew unavailable)"
+  die "could not install Unicity Astrid OS (GitHub releases failed; brew unavailable)"
 }
 
 ensure_base() {
