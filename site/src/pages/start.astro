@@ -6,14 +6,14 @@ import Base from '../layouts/Base.astro';
 
 const RELEASE = 'v0.9.2';
 
-/** One copyable shell line per method. Host tabs install base + that oracle;
- *  plugin marketplace steps stay in the note (not a second copy button). */
+/** One copyable shell line per method. Host tabs install base + that host's
+ *  plugin stack; marketplace enable steps stay in the note (not a second copy). */
 const methods = [
   {
     id: 'one',
     label: 'One command',
     cmd: 'curl -fsSL https://astridos.org/install.sh | sh',
-    note: 'Base Astrid from GitHub Releases (macOS/Linux). Detects Claude, Grok, and Codex and wires only those. Homebrew is a fallback.',
+    note: 'Base Astrid from GitHub Releases (macOS/Linux). Detects Claude, Grok, and Codex and installs only those host plugins. Homebrew is a fallback.',
   },
   {
     id: 'brew',
@@ -31,25 +31,25 @@ const methods = [
     id: 'claude',
     label: 'Claude Code',
     cmd: 'curl -fsSL https://astridos.org/install.sh | sh -s -- --host claude',
-    note: 'Base + Claude oracle. Then: claude plugin marketplace add unicity-astrid/oracles → enable astrid.',
+    note: 'Base + Claude plugin. Then: claude plugin marketplace add unicity-astrid/oracles → enable astrid.',
   },
   {
     id: 'grok',
     label: 'Grok Build',
     cmd: 'curl -fsSL https://astridos.org/install.sh | sh -s -- --host grok',
-    note: 'Base + Grok oracle. Plugin: grok plugin install <clone>/plugins/grok --trust (name: astrid).',
+    note: 'Base + Grok plugin. Then: grok plugin install <clone>/plugins/grok --trust (name: astrid).',
   },
   {
     id: 'codex',
     label: 'Codex',
     cmd: 'curl -fsSL https://astridos.org/install.sh | sh -s -- --host codex',
-    note: 'Base + Codex oracle. Plugin from unicity-astrid/oracles plugins/codex (name: astrid).',
+    note: 'Base + Codex plugin. Then install plugins/codex from unicity-astrid/oracles (name: astrid).',
   },
   {
     id: 'upgrade',
     label: 'Upgrade',
     cmd: 'curl -fsSL https://astridos.org/install.sh | sh -s -- --upgrade',
-    note: 'Re-apply base + detected host distros. Runtime-only: astrid update -y (or brew upgrade astrid).',
+    note: 'Re-apply base + detected host plugins. Runtime-only: astrid update -y (or brew upgrade astrid).',
   },
 ] as const;
 
@@ -58,7 +58,7 @@ const defaultMethod = 'one';
 
 <Base
   title="Install Astrid"
-  description="One command installs base Astrid and optional coding-host oracles."
+  description="One command installs base Astrid and optional host plugins for Claude, Grok, and Codex."
 >
   <main class="start wrap">
     <header class="start-hero">
@@ -68,9 +68,9 @@ const defaultMethod = 'one';
         <span class="mono start-ver">{RELEASE}</span>
       </div>
       <p class="prose dim start-lede">
-        Base Astrid is complete on its own. Oracles (Claude, Grok, Codex) light
-        up only when those hosts are present — or when you ask. Prefer to feel
-        it first?
+        Base Astrid is complete on its own. Host plugins for Claude Code, Grok
+        Build, and Codex install only when those apps are present — or when you
+        ask. Prefer to feel it first?
         <a href="/playground/">Playground</a> runs the real kernel in this tab.
       </p>
 
@@ -133,7 +133,7 @@ const defaultMethod = 'one';
       <p class="mono start-meta dim">
         MIT or Apache-2.0 ·
         <a href="https://github.com/unicity-astrid/astrid">GitHub</a> ·
-        <a href="https://github.com/unicity-astrid/oracles">oracles</a> ·
+        <a href="https://github.com/unicity-astrid/oracles">plugins</a> ·
         <a href="https://crates.io/crates/astrid">crates.io</a> ·
         <a href="/book/">The book</a>
       </p>
@@ -149,8 +149,8 @@ const defaultMethod = 'one';
         <span>How the machine works, part by part</span>
       </a>
       <a class="card start-link" href="https://github.com/unicity-astrid/oracles">
-        <span class="mono start-link-k">Oracles</span>
-        <span>Claude · Grok · Codex host adapters</span>
+        <span class="mono start-link-k">Plugins</span>
+        <span>Claude · Grok · Codex for Astrid</span>
       </a>
       <a class="card start-link" href="/siri/">
         <span class="mono start-link-k">Hey Siri</span>
