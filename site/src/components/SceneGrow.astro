@@ -2,7 +2,7 @@
 /** Section 5 — "Agents that grow themselves." The extensibility crescendo:
  *  the self-extension loop as a five-step storyboard, then the pull-quote. */
 const steps = [
-  { n: '01', title: 'Read', body: 'Your agent reads the manual. The manual ships inside Astrid, so it always knows how the machine it lives in works.' },
+  { n: '01', title: 'Read', body: 'Your agent reads the manual. The manual ships inside Unicity Astrid OS, so it always knows how the machine it lives in works.' },
   { n: '02', title: 'Write', body: 'It writes itself a new part: a capsule, declaring up front exactly which permissions it would need. Nothing more.' },
   { n: '03', title: 'Build', body: 'It builds the part inside the sandbox, where nothing escapes and every move is recorded.' },
   { n: '04', title: 'Install', body: 'It installs the part live. Nothing restarts. The new part gets only the permissions you allow, never more.' },
@@ -27,7 +27,7 @@ const steps = [
     </ol>
     <blockquote class="grow-quote">
       <p>
-        “An agent on Astrid can extend itself. It can write a capsule, compile
+        “An agent on Unicity Astrid OS can extend itself. It can write a capsule, compile
         it, install it, and call it, all inside the sandbox, all recorded on
         the thread.”
       </p>
@@ -314,7 +314,7 @@ const steps = [
         'handle_assemble',
         new TextEncoder().encode(
           JSON.stringify({
-            system_prompt: 'You are Astrid, a secure agent runtime assistant.',
+            system_prompt: 'You are the Unicity Astrid OS site guide, a secure agent runtime assistant.',
             request_id: 'grow-finale-0001',
             model: 'claude-fable-5',
             provider: 'anthropic',

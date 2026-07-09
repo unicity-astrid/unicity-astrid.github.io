@@ -27,7 +27,7 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
       <p class="mono dim footer-tag">
         Run AI agents and the tools they use without having to trust them.
       </p>
-      <p class="mono footer-fine" id="footer-live">ASTRID</p>
+      <p class="mono footer-fine" id="footer-live">UNICITY ASTRID OS</p>
     </div>
     <div class="wrap footer-made">
       <a
@@ -37,7 +37,7 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
         set:html={unicityMark}
       />
       <p class="mono footer-fine">
-        Astrid is an open project, created and stewarded by
+        Unicity Astrid OS is an open project, created and stewarded by
         <a href="https://www.unicity.ai/">Unicity</a> · © 2026 Unicity
       </p>
     </div>
@@ -102,7 +102,7 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
 
   .footer-fine {
     font-size: 0.72rem;
-    letter-spacing: 0.3em;
+    letter-spacing: 0.1em;
     color: var(--text-faint);
   }
 
@@ -157,7 +157,7 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
     setInterval(() => {
       const el = document.getElementById('footer-live');
       const bridge = kernel();
-      if (el && bridge) el.textContent = `ASTRID · ALIVE IN THIS TAB · ${bridge.eventsRouted()} MESSAGES CARRIED`;
+      if (el && bridge) el.textContent = `UNICITY ASTRID OS · ALIVE IN THIS TAB · ${bridge.eventsRouted()} MESSAGES CARRIED`;
     }, 2000);
   });
 </script>
