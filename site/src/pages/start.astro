@@ -6,50 +6,48 @@ import Base from '../layouts/Base.astro';
 
 const RELEASE = 'v0.9.2';
 
-/** One copyable shell line per method. Host tabs install base + that host's
- *  plugin stack; marketplace enable steps stay in the note (not a second copy). */
+/**
+ * One paste each. Layout:
+ *   One command  → shell installs *and* upgrades; detects hosts (new ones wire on re-run)
+ *   Homebrew / Cargo → package-manager upgrade/install paths (not the shell)
+ *   Claude / Grok / Codex → marketplace plugin install only (base via One command)
+ */
 const methods = [
   {
     id: 'one',
     label: 'One command',
     cmd: 'curl -fsSL https://astridos.org/install.sh | sh',
-    note: 'Base Astrid from GitHub Releases (macOS/Linux). Detects Claude, Grok, and Codex and installs only those host plugins. Homebrew is a fallback.',
+    note: 'Install or upgrade. Refreshes the CLI, detects Claude / Grok / Codex, wires only those hosts. Add a host later and re-run — same command.',
   },
   {
     id: 'brew',
     label: 'Homebrew',
-    cmd: 'brew install unicity-astrid/tap/astrid',
-    note: `Optional · ${RELEASE}. Prefer One command (releases → ~/.astrid/bin).`,
+    cmd: 'brew upgrade unicity-astrid/tap/astrid || brew install unicity-astrid/tap/astrid',
+    note: `CLI only · ${RELEASE}. Prefer One command for releases → ~/.astrid/bin plus host plugins.`,
   },
   {
     id: 'cargo',
     label: 'Cargo',
     cmd: 'cargo install astrid',
-    note: 'Build from source via crates.io.',
+    note: 'CLI only · builds latest from crates.io (re-run to upgrade). Host plugins: use One command after.',
   },
   {
     id: 'claude',
     label: 'Claude Code',
-    cmd: 'curl -fsSL https://astridos.org/install.sh | sh -s -- --host claude',
-    note: 'Base + Claude plugin. Then: claude plugin marketplace add unicity-astrid/oracles → enable astrid.',
+    cmd: 'claude plugin marketplace add unicity-astrid/oracles && claude plugin install astrid@astrid-oracles',
+    note: 'Editor plugin only (name: astrid). Base runtime + distro: One command first, or re-run after Claude is installed.',
   },
   {
     id: 'grok',
     label: 'Grok Build',
-    cmd: 'curl -fsSL https://astridos.org/install.sh | sh -s -- --host grok',
-    note: 'Base + Grok plugin. Then: grok plugin install <clone>/plugins/grok --trust (name: astrid).',
+    cmd: 'grok plugin marketplace add unicity-astrid/oracles && grok plugin install astrid@astrid-oracles',
+    note: 'Editor plugin only (name: astrid). Base runtime + distro: One command first, or re-run after Grok is installed.',
   },
   {
     id: 'codex',
     label: 'Codex',
-    cmd: 'curl -fsSL https://astridos.org/install.sh | sh -s -- --host codex',
-    note: 'Base + Codex plugin. Then install plugins/codex from unicity-astrid/oracles (name: astrid).',
-  },
-  {
-    id: 'upgrade',
-    label: 'Upgrade',
-    cmd: 'curl -fsSL https://astridos.org/install.sh | sh -s -- --upgrade',
-    note: 'Re-apply base + detected host plugins. Runtime-only: astrid update -y (or brew upgrade astrid).',
+    cmd: 'codex plugin marketplace add unicity-astrid/oracles && codex plugin install astrid@astrid-oracles',
+    note: 'Editor plugin only (name: astrid · .agents/plugins). Base runtime + distro: One command first.',
   },
 ] as const;
 
@@ -58,7 +56,7 @@ const defaultMethod = 'one';
 
 <Base
   title="Install Astrid"
-  description="One command installs base Astrid and optional host plugins for Claude, Grok, and Codex."
+  description="One command installs and upgrades Astrid, plus optional host plugins for Claude, Grok, and Codex."
 >
   <main class="start wrap">
     <header class="start-hero">
@@ -68,9 +66,9 @@ const defaultMethod = 'one';
         <span class="mono start-ver">{RELEASE}</span>
       </div>
       <p class="prose dim start-lede">
-        Base Astrid is complete on its own. Host plugins for Claude Code, Grok
-        Build, and Codex install only when those apps are present — or when you
-        ask. Prefer to feel it first?
+        One command installs and upgrades. Host plugins for Claude Code, Grok
+        Build, and Codex wire when those apps are on the machine — re-run after
+        you add one. Prefer to feel it first?
         <a href="/playground/">Playground</a> runs the real kernel in this tab.
       </p>
 
@@ -176,7 +174,6 @@ const defaultMethod = 'one';
     margin-block: var(--s-2) var(--s-3);
   }
 
-  /* Display face (Anton) — do not override with mono; that read as "font broken". */
   .start-hero h1 {
     font-family: var(--font-display);
     font-size: var(--step-5);
@@ -251,7 +248,6 @@ const defaultMethod = 'one';
     outline-offset: 2px;
   }
 
-  /* Panels: hidden via aria-hidden, not a partial CSS allowlist (that hid One/Grok/Codex/Upgrade). */
   .start-panel {
     display: none;
     gap: var(--s-2);
@@ -370,7 +366,6 @@ const defaultMethod = 'one';
       if (t?.dataset.tab) selectMethod(install, t.dataset.tab);
     });
 
-    // Arrow keys on the tablist
     install.querySelector('.start-tabs')?.addEventListener('keydown', (e) => {
       const ke = e as KeyboardEvent;
       if (ke.key !== 'ArrowRight' && ke.key !== 'ArrowLeft') return;
@@ -386,7 +381,6 @@ const defaultMethod = 'one';
       }
     });
 
-    // Deep links: #claude #grok #codex #upgrade #brew #cargo #one
     const hash = location.hash.replace(/^#/, '');
     if (hash && install.querySelector(`[data-panel="${hash}"]`)) {
       selectMethod(install, hash);
