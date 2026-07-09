@@ -32,13 +32,36 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
     <p class="hero-kicker">
       Let your AI actually do things, without handing over the keys.
     </p>
-    <div class="hero-ctas">
-      <a class="btn btn-primary" href="/build/">Build your agent →</a>
-      <a class="btn" href="/how-it-works/">See how it works</a>
+
+    <div class="hero-install" data-dock="install">
+      <div class="hero-cmd-box">
+        <code class="hero-cmd mono" id="hero-install-cmd"
+          >curl -fsSL https://astridos.org/install.sh | sh</code
+        >
+        <button
+          class="mono hero-copy"
+          type="button"
+          data-copy="curl -fsSL https://astridos.org/install.sh | sh"
+          aria-label="Copy install command"
+        >
+          copy
+        </button>
+      </div>
+      <p class="hero-install-note mono dim">
+        Install or upgrade · detects Claude, Grok, Codex ·
+        <a href="/start/">Homebrew, Cargo, plugins →</a>
+      </p>
     </div>
-    <a class="hero-works mono" href="/build/">
-      Works with <strong>Claude</strong> today · Codex, Hermes and OpenClaw soon
-    </a>
+
+    <div class="hero-ctas">
+      <a class="btn btn-primary" href="/start/">Install options</a>
+      <a class="btn" href="/how-it-works/">See how it works</a>
+      <a class="btn" href="/build/">Build your agent</a>
+    </div>
+    <p class="hero-works mono">
+      Plugins for <strong>Claude Code</strong>, <strong>Grok Build</strong>, and
+      <strong>Codex</strong> — wired when those hosts are on the machine.
+    </p>
     <p class="hero-claim mono" id="hero-claim" data-state="booting" data-dock="kernel">
       <span class="hero-claim-dot" aria-hidden="true"></span>
       <span id="hero-claim-text">Waking the real Astrid up in this tab…</span>
@@ -135,8 +158,9 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
   .hero-inner > .hero-title { animation-delay: 0.14s; }
   .hero-inner > .hero-sub { animation-delay: 0.26s; }
   .hero-inner > .hero-kicker { animation-delay: 0.33s; }
-  .hero-inner > .hero-ctas { animation-delay: 0.38s; }
-  .hero-inner > .hero-works { animation-delay: 0.48s; }
+  .hero-inner > .hero-install { animation-delay: 0.38s; }
+  .hero-inner > .hero-ctas { animation-delay: 0.46s; }
+  .hero-inner > .hero-works { animation-delay: 0.52s; }
   .hero-inner > .hero-claim { animation-delay: 0.6s; }
 
   @keyframes hero-rise {
@@ -210,7 +234,75 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
     font-size: var(--step-0);
     color: var(--text);
     max-width: var(--prose-w);
+    margin-bottom: var(--s-3);
+  }
+
+  .hero-install {
+    max-width: min(40rem, 100%);
     margin-bottom: var(--s-4);
+  }
+
+  .hero-cmd-box {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--bus) 28%, var(--line));
+    background: color-mix(in srgb, var(--bg-raised) 88%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--bus) 8%, transparent);
+  }
+
+  .hero-cmd {
+    flex: 1 1 14rem;
+    font-size: clamp(0.78rem, 0.72rem + 0.3vw, 0.95rem);
+    color: var(--bus);
+    overflow-wrap: anywhere;
+    line-height: 1.45;
+    user-select: all;
+  }
+
+  .hero-copy {
+    flex: none;
+    background: none;
+    border: 1px solid var(--line-bright);
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.45em 0.9em;
+    cursor: pointer;
+    transition:
+      color var(--t-fast) var(--ease-out),
+      border-color var(--t-fast) var(--ease-out),
+      background var(--t-fast) var(--ease-out);
+  }
+
+  .hero-copy:hover {
+    color: var(--text);
+    border-color: var(--capsule);
+  }
+
+  .hero-copy[data-done] {
+    color: var(--capsule);
+    border-color: color-mix(in srgb, var(--capsule) 50%, transparent);
+    background: color-mix(in srgb, var(--capsule) 12%, transparent);
+  }
+
+  .hero-install-note {
+    margin-top: 0.55rem;
+    font-size: var(--step--1);
+    line-height: 1.5;
+  }
+
+  .hero-install-note a {
+    color: var(--text-dim);
+  }
+
+  .hero-install-note a:hover {
+    color: var(--bus);
   }
 
   .hero-ctas {
@@ -220,30 +312,19 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
     margin-bottom: var(--s-3);
   }
 
-  /* The "do I have to switch?" answer, in the first viewport: no. Quiet
-     strip, names on it, deep link to the full bring-yours section. */
   .hero-works {
     display: block;
     width: fit-content;
+    max-width: 42rem;
     font-size: var(--step--1);
     color: var(--text-faint);
-    text-decoration: none;
     margin-bottom: var(--s-4);
-    transition: color var(--t-fast) var(--ease-out);
+    line-height: 1.5;
   }
 
   .hero-works strong {
     color: var(--text-dim);
     font-weight: 600;
-    transition: color var(--t-fast) var(--ease-out);
-  }
-
-  .hero-works:hover {
-    color: var(--text-dim);
-  }
-
-  .hero-works:hover strong {
-    color: var(--text);
   }
 
   .hero-claim {
@@ -295,6 +376,32 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
       text.textContent = 'Astrid can’t run in this browser · showing the story without the live demo';
     }
   }
+
+  function wireCopy(): void {
+    const hero = document.querySelector('.hero');
+    if (!hero || (hero as HTMLElement).dataset.copyWired) return;
+    (hero as HTMLElement).dataset.copyWired = '1';
+    hero.querySelectorAll<HTMLButtonElement>('.hero-copy').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(btn.dataset.copy ?? '');
+          btn.textContent = 'copied';
+          btn.dataset.done = '1';
+          setTimeout(() => {
+            btn.textContent = 'copy';
+            delete btn.dataset.done;
+          }, 1400);
+        } catch {
+          /* command is user-selectable */
+        }
+      });
+    });
+  }
+
   onKernel(apply);
-  document.addEventListener('astro:page-load', apply);
+  wireCopy();
+  document.addEventListener('astro:page-load', () => {
+    apply();
+    wireCopy();
+  });
 </script>
