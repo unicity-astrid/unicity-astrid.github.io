@@ -14,9 +14,20 @@ const keywords = ['agents', 'capsules', 'wasm', 'sandbox', 'audit', 'rust'];
 
 const methods = [
   {
+    id: 'one',
+    label: 'One command',
+    cmds: [
+      {
+        cmd: 'curl -fsSL https://astridos.org/install.sh | sh',
+        note:
+          'Installs base Astrid. Detects Claude / Grok / Codex and wires only those oracles. Nothing forced.',
+      },
+    ],
+  },
+  {
     id: 'brew',
     label: 'Homebrew',
-    cmds: [{ cmd: 'brew install unicity-astrid/tap/astrid', note: `macOS and Linux · ${RELEASE}` }],
+    cmds: [{ cmd: 'brew install unicity-astrid/tap/astrid', note: `CLI only · ${RELEASE} · then astrid init` }],
   },
   {
     id: 'cargo',
@@ -28,12 +39,12 @@ const methods = [
     label: 'Claude Code',
     cmds: [
       {
-        cmd: 'claude plugin marketplace add unicity-astrid/sage',
-        note: 'adds the Astrid marketplace to your Claude Code',
+        cmd: 'curl -fsSL https://astridos.org/install.sh | sh -s -- --host claude',
+        note: 'base Astrid + Claude oracle (or re-run after install.sh detects Claude)',
       },
       {
-        cmd: 'claude plugin install astrid@astrid',
-        note: 'your Claude keeps being Claude, and gains the OS underneath',
+        cmd: 'claude plugin marketplace add unicity-astrid/oracles',
+        note: 'plugin marketplace (when published); until then use a local path to oracles/plugins/claude',
       },
     ],
   },
@@ -55,7 +66,7 @@ const buildIt = [
 
 <Base
   title="Install Astrid"
-  description="Install Astrid with Homebrew, Cargo, or straight into Claude Code. Then talk to an agent, write a capsule, and install it live."
+  description="One command installs base Astrid and optional coding-host oracles. Or use Homebrew, Cargo, or Claude Code."
 >
   <main class="start wrap">
     <header class="start-head">
@@ -65,8 +76,8 @@ const buildIt = [
         <span class="mono start-ver">{RELEASE}</span>
       </div>
       <p class="prose dim start-lede">
-        The secure home for AI agents: one daemon, sealed capsules, receipts
-        for everything. If you only want to feel what Astrid is first, the
+        Base Astrid is complete on its own. Oracles (Claude, Grok, Codex) light up
+        only when you already use those hosts — or when you ask. If you only want to feel it first, the
         <a href="/playground/">playground</a> runs the real kernel in this
         tab, nothing to install.
       </p>
@@ -79,7 +90,7 @@ const buildIt = [
       </p>
     </header>
 
-    <section class="card start-install" id="install" data-method="brew">
+    <section class="card start-install" id="install" data-method="one">
       <span id="claude" class="start-anchor" aria-hidden="true"></span>
       <div class="start-tabs" role="tablist" aria-label="Install method">
         {
@@ -88,7 +99,7 @@ const buildIt = [
               class="mono start-tab"
               role="tab"
               data-tab={m.id}
-              aria-selected={m.id === 'brew' ? 'true' : 'false'}
+              aria-selected={m.id === 'one' ? 'true' : 'false'}
             >
               {m.label}
             </button>
