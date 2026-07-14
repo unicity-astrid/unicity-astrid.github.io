@@ -66,6 +66,7 @@ unit tests should isolate pure logic into modules that can compile natively.
 ## Product state
 
 The AOS product home is `~/.unicity-os`; the bundled runtime lives below
-`~/.unicity-os/runtime`. The `aos` process sets `ASTRID_HOME` only for the child
-runtime. It does not mutate the user's shell environment or claim a standalone
-Astrid installation.
+`~/.unicity-os/runtime`. Project state also uses `.unicity-os` instead of the
+standalone runtime's `.astrid`. The `aos` process selects both locations only
+for the child runtime. It does not mutate the user's shell environment or claim
+a standalone Astrid installation.

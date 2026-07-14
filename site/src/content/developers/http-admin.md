@@ -45,11 +45,11 @@ Quota and usage are different: setting a limit does not reset consumed usage.
 | --- | --- | --- |
 | `GET` | `/api/sys/groups` | `GroupListResponse` |
 | `POST` | `/api/sys/groups` | create with `CreateGroupRequest` |
-| `PATCH` | `/api/sys/groups/{name}` | modify with `ModifyGroupRequest` |
-| `DELETE` | `/api/sys/groups/{name}` | delete a group |
+| `PATCH` | `/api/sys/groups/{id}` | modify with `ModifyGroupRequest` |
+| `DELETE` | `/api/sys/groups/{id}` | delete a group |
 | `GET` | `/api/sys/invites` | list invite summaries |
 | `POST` | `/api/sys/invites` | issue from `IssueRequest` |
-| `DELETE` | `/api/sys/invites/{fingerprint}` | revoke an unused invite |
+| `DELETE` | `/api/sys/invites/{id}` | revoke an unused invite |
 
 Invite list responses expose fingerprints and safe metadata, not reusable
 secret material. Show a newly issued code once, then store only what the schema

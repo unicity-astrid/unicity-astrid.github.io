@@ -63,8 +63,8 @@ and verifies the formula.
 
 `aos init` materializes the Unicity CE manifest embedded in the same product
 release. It does not fetch a mutable manifest from `main`. The wrapper sets
-`ASTRID_HOME` only for its child runtime, so standalone Astrid state remains
-separate.
+the product runtime home and `.unicity-os` project layout only for its child
+runtime, so standalone Astrid state remains separate.
 
 For unattended initialization, review the variables and requested capabilities
 before using `--yes`. Use `UNICITY_AOS_HOME` for disposable CI state.
@@ -73,6 +73,7 @@ before using `--yes`. Use `UNICITY_AOS_HOME` for disposable CI state.
 
 ```sh
 aos --version
+aos status
 aos doctor
 aos capsule list
 ```

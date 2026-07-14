@@ -17,6 +17,7 @@ Runtime bundled in the same AOS release.
 | `aos --help` | product help and delegation boundary |
 | `aos --version` | AOS calendar-SemVer version, such as `2026.1.0` |
 | `aos init` | apply the Unicity CE manifest embedded in this product release |
+| `aos status [--json]` | read typed local runtime status without invoking the runtime CLI |
 | `aos migrate runtime --from PATH` | copy compatible standalone runtime state deliberately |
 | `aos serve-health` | bind the narrow loopback health endpoint |
 | `aos self-update` | reject runtime-only updating and direct callers to the product updater |
@@ -36,9 +37,10 @@ Runtime outside the product installation.
 ## Delegated commands
 
 Every other command is executed by `~/.unicity-os/runtime/bin/astrid` with
-`ASTRID_HOME=~/.unicity-os/runtime` set only in the child process. This includes
-runtime/operator surfaces such as daemon operation, capsule inspection, distro
-status, diagnostics, and agent execution.
+`ASTRID_HOME=~/.unicity-os/runtime` and the product workspace state directory
+set only in the child process. This includes runtime/operator surfaces such as
+daemon operation, capsule inspection, distro status, diagnostics, and agent
+execution.
 
 ```sh
 aos doctor
