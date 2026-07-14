@@ -38,6 +38,10 @@
     Install and uninstall mint and revoke capability tokens on the audit
     chain. Native installs additionally verify publisher signatures.
   </p>
+  <button id="hud-model-remove" class="hud-model-remove mono" type="button" hidden>
+    Remove downloaded model
+  </button>
+  <p id="hud-model-remove-status" class="hud-note dim" role="status" aria-live="polite" hidden></p>
   <h3 class="mono dim">Audit tail</h3>
   <ol id="hud-audit" class="hud-audit mono" reversed></ol>
   <p class="hud-note dim">
@@ -305,6 +309,7 @@
     onSectionCapsules,
     toggleCapsule,
   } from '../scripts/section-capsules';
+  import { removeModel } from '../scripts/local-agent';
 
   const $ = (id: string) => document.getElementById(id)!;
   const hud = $('hud');
@@ -312,6 +317,8 @@
   const closeButton = $('hud-close') as HTMLButtonElement;
   const dot = $('hud-dot');
   const text = $('hud-text');
+  const modelRemove = $('hud-model-remove') as HTMLButtonElement;
+  const modelRemoveStatus = $('hud-model-remove-status');
 
   let commit = '';
   let ticker: number | undefined;
@@ -419,11 +426,49 @@
   }
   onSectionCapsules(renderCapsules);
 
+  function syncModelRemoval(): void {
+    const downloaded =
+      localStorage.getItem('aos-agent-optin') === '1' ||
+      localStorage.getItem('astrid-agent-optin') === '1';
+    modelRemove.hidden = !downloaded;
+    if (downloaded) {
+      modelRemove.disabled = false;
+      modelRemove.textContent = 'Remove downloaded model';
+      modelRemoveStatus.hidden = true;
+    }
+  }
+
+  modelRemove.addEventListener('click', () => {
+    const bridge = kernel();
+    if (!bridge) {
+      modelRemoveStatus.hidden = false;
+      modelRemoveStatus.textContent = 'The runtime is unavailable; the model was not removed.';
+      return;
+    }
+    modelRemove.disabled = true;
+    modelRemove.textContent = 'Removing model…';
+    modelRemoveStatus.hidden = false;
+    modelRemoveStatus.textContent = 'Deleting model weights and cache from this browser.';
+    void removeModel(bridge)
+      .then(() => {
+        modelRemove.textContent = 'Model removed';
+        modelRemoveStatus.textContent =
+          'The downloaded model was removed. Any connected endpoint remains active.';
+      })
+      .catch((error: unknown) => {
+        modelRemove.disabled = false;
+        modelRemove.textContent = 'Try removing model again';
+        modelRemoveStatus.textContent =
+          error instanceof Error ? error.message : 'The browser could not remove the model.';
+      });
+  });
+
   hud.addEventListener('click', () => {
     const open = drawer.hidden;
     drawer.hidden = !open;
     hud.setAttribute('aria-expanded', String(open));
     if (open) {
+      syncModelRemoval();
       void refreshAudit();
       closeButton.focus();
     }

@@ -204,8 +204,6 @@ export async function removeModel(bridge: AstridBridge): Promise<void> {
     /* the engine may already be gone; cache deletion is the point */
   }
   engine = null;
-  localStorage.removeItem('aos-agent-optin');
-  localStorage.removeItem('astrid-agent-optin');
   const webllm = await import('@mlc-ai/web-llm');
   // "nothing left behind" includes weights this site shipped in EARLIER
   // cuts — a returning visitor's cache may hold one of those instead
@@ -224,14 +222,33 @@ export async function removeModel(bridge: AstridBridge): Promise<void> {
     'Qwen3-0.6B-q4f32_1-MLC',
     'gemma-2-2b-it-q4f16_1-MLC',
   ];
+  let deletionError: unknown = null;
   for (const id of shipped) {
     try {
       await webllm.deleteModelAllInfoInCache(id);
-    } catch {
-      /* absent = already clean */
+    } catch (error: unknown) {
+      deletionError ??= error;
     }
   }
-  publishStatus(bridge, 'off', 'Model removed from this browser — nothing left behind');
+  if (deletionError) {
+    publishStatus(
+      bridge,
+      endpoint ? 'ready' : 'off',
+      endpoint
+        ? 'Local model removal failed; connected endpoint remains active'
+        : 'Local model removal failed',
+    );
+    throw deletionError;
+  }
+  localStorage.removeItem('aos-agent-optin');
+  localStorage.removeItem('astrid-agent-optin');
+  publishStatus(
+    bridge,
+    endpoint ? 'ready' : 'off',
+    endpoint
+      ? 'Downloaded model removed; connected endpoint remains active'
+      : 'Model removed from this browser — nothing left behind',
+  );
 }
 
 /**

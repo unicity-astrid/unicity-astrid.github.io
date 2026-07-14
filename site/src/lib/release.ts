@@ -6,6 +6,6 @@
 export const AOS_RELEASE = {
   version: '2026.1.0',
   available: false,
-  installCommand: 'curl -fsSL https://aos.unicity.ai/install.sh | sh',
+  installCommand: "curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh",
   repository: 'https://github.com/unicity-aos/aos-ce',
 } as const;

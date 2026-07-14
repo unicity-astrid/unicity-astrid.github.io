@@ -64,7 +64,7 @@ does not fetch capsule composition or runtime binaries from mutable `main`.
 6. Test the canonical root `install.sh` against the published release.
 7. Dispatch and verify `brew install unicity-aos/tap/aos` from the release tap.
 8. Enable the website release switch and installer copy actions.
-9. Verify `curl -fsSL https://aos.unicity.ai/install.sh | sh` on every target.
+9. Verify `curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh` on every target.
 
 Website metadata, `aos --version`, archive tag, and documentation must agree.
 

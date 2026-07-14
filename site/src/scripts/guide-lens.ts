@@ -18,12 +18,18 @@ let loading: Promise<Chapter[]> | null = null;
 
 export function loadIndex(): Promise<Chapter[]> {
   if (index) return Promise.resolve(index);
-  loading ??= fetch('/agent-index.json')
-    .then((response) => {
-      if (!response.ok) throw new Error(`developer guide index returned ${response.status}`);
-      return response.json() as Promise<Chapter[]>;
-    })
-    .then((entries) => (index = entries));
+  if (!loading) {
+    loading = fetch('/agent-index.json')
+      .then((response) => {
+        if (!response.ok) throw new Error(`developer guide index returned ${response.status}`);
+        return response.json() as Promise<Chapter[]>;
+      })
+      .then((entries) => (index = entries))
+      .catch((error: unknown) => {
+        loading = null;
+        throw error;
+      });
+  }
   return loading;
 }
 
