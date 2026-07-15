@@ -22,6 +22,8 @@ copy action disabled.
 
 ## Develop
 
+The website requires Node.js 22.12.0 or newer.
+
 ```sh
 cd site
 npm ci
