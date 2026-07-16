@@ -61,7 +61,7 @@ another developer prove how it was produced.
 
 Create a temporary product home, install the artifact through the normal runtime
 surface, invoke one success path, and exercise at least one denied capability.
-Do not reuse a developer's live `~/.unicity-os` in CI.
+Do not reuse a developer's live `~/.aos` in CI.
 
 The product release should stage every capsule artifact first, verify all
 digests, then compose the distro lock. Never resolve Community Edition from

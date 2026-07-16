@@ -7,50 +7,74 @@ import { AOS_RELEASE } from '../lib/release';
 const RELEASE = AOS_RELEASE.version;
 
 /**
- * One paste each. Layout:
- *   One command  → product installer, enabled only after release assets exist
- *   Claude / Grok / Codex → marketplace adapter only (base via One command)
+ * One paste each. Stable is the installer default; development and nightly are
+ * always explicit. Every product and Oracle command fails closed behind its
+ * release metadata flag.
  */
 const methods = [
   {
-    id: 'one',
-    label: 'One command',
-    cmd: AOS_RELEASE.installCommand,
-    requiresRelease: true,
-    note: AOS_RELEASE.available
-      ? 'Installs the AOS CLI, the pinned Astrid Runtime bundle, and Unicity CE. Re-run to upgrade.'
-      : `Staged command for ${AOS_RELEASE.version}. It becomes supported only when the matching signed AOS release is published.`,
+    id: 'stable',
+    label: AOS_RELEASE.channels.stable.label,
+    cmd: AOS_RELEASE.channels.stable.command,
+    available: AOS_RELEASE.channels.stable.available,
+    unavailableLabel: 'stable closed',
+    note: AOS_RELEASE.channels.stable.available
+      ? 'Installs the approved AOS product bundle. Re-run to upgrade on the stable channel.'
+      : `Default-channel contract for ${AOS_RELEASE.version}. Stable remains closed until the matching signed AOS release is approved and published.`,
+  },
+  {
+    id: 'dev',
+    label: AOS_RELEASE.channels.dev.label,
+    cmd: AOS_RELEASE.channels.dev.command,
+    available: AOS_RELEASE.channels.dev.available,
+    unavailableLabel: 'dev closed',
+    note: `${AOS_RELEASE.channels.dev.note} This is a staged command example, not a live download.`,
+  },
+  {
+    id: 'nightly',
+    label: AOS_RELEASE.channels.nightly.label,
+    cmd: AOS_RELEASE.channels.nightly.command,
+    available: AOS_RELEASE.channels.nightly.available,
+    unavailableLabel: 'nightly closed',
+    note: `${AOS_RELEASE.channels.nightly.note} This is a staged command example, not a live download.`,
   },
   {
     id: 'homebrew',
     label: 'Homebrew',
-    cmd: 'brew install unicity-aos/tap/aos',
-    requiresRelease: true,
-    note: AOS_RELEASE.available
+    cmd: AOS_RELEASE.homebrew.command,
+    available: AOS_RELEASE.homebrew.available,
+    unavailableLabel: 'formula pending',
+    note: AOS_RELEASE.homebrew.available
       ? 'Installs the signed AOS product release and its pinned Astrid Runtime bundle.'
       : `The tap automation is ready; the ${AOS_RELEASE.version} formula publishes when the first product release dispatch completes.`,
   },
   {
     id: 'claude',
     label: 'Claude Code',
-    cmd: 'claude plugin marketplace add unicity-aos/oracles && claude plugin install astrid@astrid-oracles',
-    note: 'Editor plugin only (name: astrid). Base runtime + distro: One command first, or re-run after Claude is installed.',
+    cmd: AOS_RELEASE.oracles.commands.claude,
+    available: AOS_RELEASE.oracles.available,
+    unavailableLabel: 'plugin pending',
+    note: `AOS Oracle plugin (${AOS_RELEASE.oracles.pluginIdentity}). It opens only with the matching AOS base release.`,
   },
   {
     id: 'grok',
     label: 'Grok Build',
-    cmd: 'grok plugin marketplace add unicity-aos/oracles && grok plugin install astrid@unicity-aos/oracles --trust',
-    note: 'Editor plugin only (name: astrid · pinned by repo, not marketplace name). Base runtime + distro: One command first, or re-run after Grok is installed.',
+    cmd: AOS_RELEASE.oracles.commands.grok,
+    available: AOS_RELEASE.oracles.available,
+    unavailableLabel: 'plugin pending',
+    note: `AOS Oracle plugin (${AOS_RELEASE.oracles.pluginIdentity}). It opens only with the matching AOS base release.`,
   },
   {
     id: 'codex',
     label: 'Codex',
-    cmd: 'codex plugin marketplace add unicity-aos/oracles && codex plugin add astrid@astrid-oracles',
-    note: 'Editor plugin only (name: astrid · .agents/plugins; codex uses `add`, not `install`). Base runtime + distro: One command first.',
+    cmd: AOS_RELEASE.oracles.commands.codex,
+    available: AOS_RELEASE.oracles.available,
+    unavailableLabel: 'plugin pending',
+    note: `AOS Oracle plugin (${AOS_RELEASE.oracles.pluginIdentity}; Codex uses \`add\`). It opens only with the matching AOS base release.`,
   },
 ] as const;
 
-const defaultMethod = 'one';
+const defaultMethod = AOS_RELEASE.defaultChannel;
 ---
 
 <Base
@@ -68,8 +92,8 @@ const defaultMethod = 'one';
       </div>
       <p class="prose dim start-lede">
         {AOS_RELEASE.available
-          ? 'One command installs the product CLI, pinned runtime, and Community Edition composition. Host integrations wire only with your approval.'
-          : `AOS ${RELEASE} is staged, but its signed product packages are not published yet. The command below is the release integration point, not a claim that the channel is live.`}
+          ? 'Stable is the default channel. Development and nightly builds require an explicit channel selection, and host integrations wire only with your approval.'
+          : `AOS ${RELEASE} is staged. Stable, dev, nightly, Homebrew, and AOS Oracle installs are all closed; the commands below document the release contract without claiming that any channel is published.`}
       </p>
 
       <section
@@ -118,9 +142,9 @@ const defaultMethod = 'one';
                   type="button"
                   data-copy={m.cmd}
                   aria-label={`Copy: ${m.cmd}`}
-                  disabled={!AOS_RELEASE.available && 'requiresRelease' in m && m.requiresRelease}
+                  disabled={!m.available}
                 >
-                  {AOS_RELEASE.available || !('requiresRelease' in m && m.requiresRelease) ? 'copy' : 'pending release'}
+                  {m.available ? 'copy' : m.unavailableLabel}
                 </button>
               </div>
               <p class="dim start-note">{m.note}</p>

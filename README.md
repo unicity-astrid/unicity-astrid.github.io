@@ -7,7 +7,8 @@ the open operating-system engine beneath it.
 
 The production hostname is [aos.unicity.ai](https://aos.unicity.ai/). Until the
 first signed AOS product release is published, the install surface visibly marks
-the release channel as staged.
+stable, dev, nightly, Homebrew, and AOS Oracle channels as staged and keeps every
+copy action disabled.
 
 ## Repository layout
 
@@ -32,6 +33,17 @@ npm run dev
 Both `check` and `build` are release gates. The product release integration is
 centralized in `site/src/lib/release.ts`; `available` may become `true` only
 after matching AOS artifacts, checksums, signatures, and installer assets exist.
+
+The default installer channel is stable. Development and nightly channels are
+always explicit (`--channel dev` and `--channel nightly`) and never fall back to
+stable. The commands are documentation only while their channel metadata is
+unavailable.
+
+`site/public/install.sh` is a byte-for-byte mirror of the canonical `aos-ce`
+installer. Pages CI records the exact source commit in
+`AOS_INSTALLER_SOURCE_COMMIT` and compares both source and built copies. Update
+that commit and the mirror together only after the canonical installer contract
+has landed.
 
 Community Edition source lives in
 [unicity-aos/aos-ce](https://github.com/unicity-aos/aos-ce).

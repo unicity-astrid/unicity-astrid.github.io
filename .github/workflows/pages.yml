@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # Existing aos-ce revision mirrored by site/public/install.sh. Update this full
+  # commit and the mirror together after the canonical channel installer lands.
+  AOS_INSTALLER_SOURCE_COMMIT: eb1d65f0c66050becd685eaacc5b6451563b6512
+
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -21,6 +26,18 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           path: unicity-aos-web
+      - name: Check out pinned canonical installer source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: unicity-aos/aos-ce
+          ref: ${{ env.AOS_INSTALLER_SOURCE_COMMIT }}
+          path: aos-ce
+          persist-credentials: false
+      - name: Verify canonical installer mirror
+        run: |
+          test "$(git -C aos-ce rev-parse HEAD)" = "$AOS_INSTALLER_SOURCE_COMMIT"
+          sh -n aos-ce/install.sh
+          cmp aos-ce/install.sh unicity-aos-web/site/public/install.sh
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
@@ -39,6 +56,11 @@ jobs:
         env:
           ASTRO_TELEMETRY_DISABLED: '1'
         run: npm run build
+      - name: Verify built installer bytes
+        run: cmp aos-ce/install.sh unicity-aos-web/site/dist/install.sh
+      - name: Test staged release surfaces
+        working-directory: unicity-aos-web/site
+        run: npm test
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: unicity-aos-web/site/dist

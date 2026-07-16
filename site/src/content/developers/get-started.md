@@ -6,14 +6,28 @@ order: 10
 ---
 
 Unicity AOS Community Edition is the public product distribution. Its command is
-`aos`; its product home is `~/.unicity-os`; its private bundled runtime lives at
-`~/.unicity-os/runtime`.
+`aos`; its product home is `~/.aos`; its private bundled runtime lives at
+`~/.aos/runtime`.
 
 ## Release status
 
-AOS `2026.1.0` is the product version being prepared. Until its signed product
-archives, checksums, and installer are published, use the source workspace for
-development and treat the Install page as release staging rather than a live
+AOS `2026.1.0` is the product version being prepared. Its stable, dev, nightly,
+Homebrew, and AOS Oracle channels are not published. Use the source workspace for
+development and treat every command below as a staged contract rather than a live
+download.
+
+Stable is the installer default. Development and nightly are always explicit:
+
+```sh
+# Stable contract; unavailable until 2026.1.0 is approved and published.
+curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh
+
+# Explicit prerelease contracts; neither channel is published yet.
+curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh -s -- --channel dev
+curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh -s -- --channel nightly
+```
+
+An unavailable channel must stop without installing or falling back to another
 channel.
 
 ```sh
@@ -37,11 +51,15 @@ runtime/bin/astrid
 runtime/bin/astrid-daemon
 runtime/bin/astrid-build
 runtime/bin/astrid-emit
+Distro.toml
+capsule-assets.txt
+capsules/*.capsule
 ```
 
 The installer selects a platform archive named
-`unicity-aos-<target>.tar.gz`, verifies it against `SHA256SUMS.txt`, and installs
-the product and its pinned runtime together.
+`unicity-aos-<target>.tar.gz`, verifies the signed release identity and archive,
+and installs the product, pinned runtime, and Community Edition capsule set
+together.
 
 ## Initialize Community Edition
 
@@ -61,13 +79,13 @@ The tap repository and formula automation can exist before the formula itself;
 the command is supported only after the `2026.1.0` release dispatch publishes
 and verifies the formula.
 
-`aos init` materializes the Unicity CE manifest embedded in the same product
+`aos init` materializes the Unicity CE manifest installed from the same product
 release. It does not fetch a mutable manifest from `main`. The wrapper sets
-the product runtime home and `.unicity-os` project layout only for its child
+the product runtime home and `.aos` project layout only for its child
 runtime, so standalone Astrid state remains separate.
 
 For unattended initialization, review the variables and requested capabilities
-before using `--yes`. Use `UNICITY_AOS_HOME` for disposable CI state.
+before using `--yes`. Use `AOS_HOME` for disposable CI state.
 
 ## Verify the installation
 

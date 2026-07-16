@@ -41,7 +41,7 @@ const slots: Slot[] = [
   {
     icon: '▤', name: 'The memory', req: 'optional', hint: 'What it learned yesterday, still there today.',
     opts: [
-      { name: 'Cross-session memory', desc: 'Reads .unicity-os/memory.md into the prompt', key: 'files', sel: true },
+      { name: 'Cross-session memory', desc: 'Reads .aos/memory.md into the prompt', key: 'files', sel: true },
       { name: 'Session store', desc: 'Persistent, append-only conversation history', sel: true },
     ],
   },
@@ -149,7 +149,12 @@ function highlight(src: string): string {
 }
 
 const commands = [
-  { cmd: AOS_RELEASE.installCommand, note: `published with the signed AOS ${AOS_RELEASE.version} release` },
+  {
+    cmd: AOS_RELEASE.channels.stable.command,
+    note: AOS_RELEASE.channels.stable.available
+      ? `installs the signed AOS ${AOS_RELEASE.version} stable release`
+      : `staged stable-channel contract; AOS ${AOS_RELEASE.version} is not published`,
+  },
   { cmd: 'aos init', note: 'initializes the product-owned runtime home and Unicity CE composition' },
   { cmd: 'aos run', note: 'delegates the operator command to the bundled Astrid Runtime' },
 ];

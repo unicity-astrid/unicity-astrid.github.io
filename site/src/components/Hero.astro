@@ -52,8 +52,8 @@ import { AOS_RELEASE } from '../lib/release';
       <p class="hero-install-note mono dim">
         {
           AOS_RELEASE.available
-            ? 'Install or upgrade · detects Claude, Grok, Codex · '
-            : `Release command staged for ${AOS_RELEASE.version}; packages are not published yet · `
+            ? 'Stable channel · signed AOS product bundle · '
+            : `Stable command staged for ${AOS_RELEASE.version}; all release channels are closed · `
         }
         <a href="/start/">release status and integrations →</a>
       </p>
@@ -65,8 +65,9 @@ import { AOS_RELEASE } from '../lib/release';
       <a class="btn" href="/build/">Build your agent</a>
     </div>
     <p class="hero-works mono">
-      Plugins for <strong>Claude Code</strong>, <strong>Grok Build</strong>, and
-      <strong>Codex</strong> — wired when those hosts are on the machine.
+      {AOS_RELEASE.oracles.available ? 'AOS Oracle plugins for' : 'AOS Oracle plugins staged for'}
+      {' '}<strong>Claude Code</strong>, <strong>Grok Build</strong>, and <strong>Codex</strong>
+      {' '}— identity <strong>{AOS_RELEASE.oracles.pluginIdentity}</strong>.
     </p>
     <p class="hero-claim mono" id="hero-claim" data-state="booting" data-dock="kernel">
       <span class="hero-claim-dot" aria-hidden="true"></span>

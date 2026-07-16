@@ -7,7 +7,8 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "check": "astro check"
+    "check": "astro check",
+    "test": "node scripts/test-release-contract.mjs"
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.5",

@@ -6,8 +6,9 @@ order: 90
 ---
 
 Unicity AOS versions independently from Astrid Runtime. Product releases use
-calendar SemVer: `2026.1.0` is the first stable 2026 release; compatible fixes
-advance the patch and compatible product features advance the minor.
+calendar SemVer: `2026.1.0` is the staged candidate for the first stable 2026
+release; compatible fixes advance the patch and compatible product features
+advance the minor. It is not published yet.
 
 ## Release identity
 
@@ -28,9 +29,27 @@ runtime/bin/astrid-build
 runtime/bin/astrid-emit
 ```
 
-`SHA256SUMS.txt` covers every archive. The release workflow signs the supported
-verification material according to product policy before the installer is
-enabled.
+The release workflow publishes BLAKE3 and SHA-256 compatibility manifests and
+signs the supported verification material according to product policy before an
+installer channel is enabled.
+
+## Installer channels
+
+Stable is the default. Dev and nightly must be selected explicitly:
+
+```sh
+# Stable default
+curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh
+
+# Explicit prerelease channels
+curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh -s -- --channel dev
+curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh -s -- --channel nightly
+```
+
+These are contract examples, not claims that a channel is live. All three are
+closed while `2026.1.0` is staged. The installer must resolve a selected channel
+to signed release metadata and an immutable tag. Missing, invalid, or mismatched
+channel metadata stops installation; it never falls back to another channel.
 
 ## Supported targets
 
@@ -60,10 +79,11 @@ does not fetch capsule composition or runtime binaries from mutable `main`.
 3. Build the four product archives from the pinned runtime release.
 4. Smoke-test clean install, upgrade, migration, `aos init`, delegated commands,
    and uninstall or rollback behavior.
-5. Publish archives and `SHA256SUMS.txt` under tag `2026.1.0`.
+5. Publish signed archives and compatibility manifests under tag `2026.1.0`.
 6. Test the canonical root `install.sh` against the published release.
 7. Dispatch and verify `brew install unicity-aos/tap/aos` from the release tap.
-8. Enable the website release switch and installer copy actions.
+8. Promote signed stable-channel metadata, then enable the website release switch
+   and installer copy actions.
 9. Verify `curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh` on every target.
 
 Website metadata, `aos --version`, archive tag, and documentation must agree.

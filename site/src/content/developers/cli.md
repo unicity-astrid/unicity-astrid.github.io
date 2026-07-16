@@ -36,8 +36,8 @@ Runtime outside the product installation.
 
 ## Delegated commands
 
-Every other command is executed by `~/.unicity-os/runtime/bin/astrid` with
-`ASTRID_HOME=~/.unicity-os/runtime` and the product workspace state directory
+Every other command is executed by `~/.aos/runtime/bin/astrid` with
+`ASTRID_HOME=~/.aos/runtime` and the product workspace state directory
 set only in the child process. This includes runtime/operator surfaces such as
 daemon operation, capsule inspection, distro status, diagnostics, and agent
 execution.
@@ -55,10 +55,10 @@ not maintain a second parser for every runtime flag.
 
 ## Product home override
 
-Use `UNICITY_AOS_HOME` to isolate a development or CI installation:
+Use `AOS_HOME` to isolate a development or CI installation:
 
 ```sh
-export UNICITY_AOS_HOME="$(mktemp -d)"
+export AOS_HOME="$(mktemp -d)"
 aos init --yes
 ```
 

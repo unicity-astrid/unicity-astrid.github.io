@@ -8,25 +8,36 @@ import claudeMark from '../assets/brands/claude.svg?raw';
 import codexMark from '../assets/brands/codex.svg?raw';
 import hermesMark from '../assets/brands/hermes.svg?raw';
 import openclawMark from '../assets/brands/openclaw.svg?raw';
+import { AOS_RELEASE } from '../lib/release';
 
-const platforms = [
+type Platform = {
+  id: string;
+  name: string;
+  mark: string;
+  note: string;
+  live: boolean;
+  href?: string;
+  cta?: string;
+};
+
+const platforms: Platform[] = [
   {
     id: 'claude',
     name: 'Claude',
     mark: claudeMark,
-    note: 'Adapter source available',
+    note: AOS_RELEASE.oracles.available ? 'AOS Oracle available' : 'AOS Oracle staged',
     href: '/start/#claude',
     cta: 'get it →',
-    live: true,
+    live: AOS_RELEASE.oracles.available,
   },
   {
     id: 'codex',
     name: 'Codex',
     mark: codexMark,
-    note: 'Adapter source available',
+    note: AOS_RELEASE.oracles.available ? 'AOS Oracle available' : 'AOS Oracle staged',
     href: '/start/#codex',
     cta: 'view →',
-    live: true,
+    live: AOS_RELEASE.oracles.available,
   },
   { id: 'hermes', name: 'Hermes', mark: hermesMark, note: 'Coming', live: false },
   { id: 'openclaw', name: 'OpenClaw', mark: openclawMark, note: 'Coming', live: false },
@@ -61,7 +72,7 @@ const platforms = [
               <span class="bring-logo" aria-hidden="true" set:html={p.mark} />
               <span class="bring-name">{p.name}</span>
               <span class="mono bring-note dim">{p.note}</span>
-              {p.live && p.href ? (
+              {p.live && p.href && p.cta ? (
                 <a class="mono bring-cta" href={p.href}>{p.cta}</a>
               ) : (
                 <span class="mono bring-cta bring-soon">Soon</span>

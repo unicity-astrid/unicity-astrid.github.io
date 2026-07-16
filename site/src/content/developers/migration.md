@@ -36,7 +36,7 @@ should stop the migration with a precise report rather than be guessed.
 
 Do not copy sockets, PID files, readiness markers, session tokens, transient
 locks, caches, or binaries. AOS supplies its own pinned runtime under
-`~/.unicity-os/runtime/bin`.
+`~/.aos/runtime/bin`.
 
 Legacy distro selection is preserved as historical state but not silently
 activated as the product distro. Run `aos init` deliberately to apply Unicity CE
