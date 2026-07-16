@@ -36,16 +36,22 @@ ipc::publish_json(
     "example.v1.request.run",
     &serde_json::json!({ "response_topic": response_topic, "input": "hello" }),
 )?;
-let envelope = subscription.recv(std::time::Duration::from_secs(10))?;
+let result = subscription.recv(10_000)?;
+let message = result
+    .messages
+    .iter()
+    .find(|message| message.topic == response_topic)
+    .ok_or_else(|| SysError::ApiError("response topic was not received".into()))?;
 ```
 
 That correlated form requires the callee's manifest to allow
 `example.v1.response.run.*`. If the contract has one fixed response topic, use
 that exact topic instead and keep the publish ACL concrete.
 
-Treat an empty timeout envelope as a timeout result. Do not assume the SDK will
-always surface it as an error. Validate that the returned envelope has the
-expected topic and payload before using it.
+`recv` accepts a timeout in milliseconds. A timeout is returned as a host error;
+on success, inspect the `PollResult` rather than assuming it contains exactly one
+message. Validate the selected message's topic and payload, and account for its
+`dropped` and `lagged` counters before using it.
 
 ## Caller identity
 

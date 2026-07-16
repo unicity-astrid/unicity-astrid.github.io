@@ -26,13 +26,14 @@ Finish the component itself using the chapters on [capsule anatomy](/developers/
 ## Add the distro entry
 
 Community Edition composition lives in
-`distros/community/unicity-ce/Distro.toml`. Pin an immutable capsule version and
-use the `@unicity-aos` source namespace.
+`distros/community/unicity-ce/Distro.toml`. The first product release packages
+verified `.capsule` artifacts beside the distro under `capsules/`; pin the
+artifact version and reference that release-local path.
 
 ```toml
 [[capsule]]
 name = "astrid-capsule-example"
-source = "@unicity-aos/capsule-example"
+source = "capsules/astrid-capsule-example.capsule"
 version = "0.1.0"
 ```
 
@@ -46,10 +47,13 @@ example_endpoint = { description = "Example service base URL", default = "https:
 
 [[capsule]]
 name = "astrid-capsule-example"
-source = "@unicity-aos/capsule-example"
+source = "capsules/astrid-capsule-example.capsule"
 version = "0.1.0"
 env = { endpoint = "{{ example_endpoint }}" }
 ```
+
+The public capsule registry is not live yet. Do not put a registry namespace in
+the CE manifest until that namespace resolves to signed, immutable artifacts.
 
 ## Validate the composition
 

@@ -20,7 +20,10 @@ Runtime bundled in the same AOS release.
 | `aos status [--json]` | read typed local runtime status without invoking the runtime CLI |
 | `aos migrate runtime --from PATH` | copy compatible standalone runtime state deliberately |
 | `aos serve-health` | bind the narrow loopback health endpoint |
-| `aos self-update` | reject runtime-only updating and direct callers to the product updater |
+| `aos update` | update the AOS product and bundled runtime together from a signed channel or exact version |
+
+`aos self-update` remains an alias for `aos update`. `aos distro` is also
+product-owned and refuses replacement of the Unicity CE composition.
 
 `aos init` accepts the runtime's supported non-distro onboarding flags:
 
@@ -39,12 +42,14 @@ Runtime outside the product installation.
 Every other command is executed by `~/.aos/runtime/bin/astrid` with
 `ASTRID_HOME=~/.aos/runtime` and the product workspace state directory
 set only in the child process. This includes runtime/operator surfaces such as
-daemon operation, capsule inspection, distro status, diagnostics, and agent
-execution.
+daemon operation, capsule inspection, diagnostics, and agent execution. The
+product-owned `aos status` remains the supported local status projection; it is
+not delegated to the runtime command of the same name.
 
 ```sh
 aos doctor
-aos daemon
+aos start
+aos logs
 aos capsule list
 aos run
 ```

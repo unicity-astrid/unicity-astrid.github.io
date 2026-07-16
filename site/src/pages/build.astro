@@ -82,7 +82,7 @@ const stack = [
 ];
 const keys = ['files', 'web', 'commands'];
 
-const manifest = `# assembled at aos.unicity.ai — a starting point, edit freely
+const manifest = `# composition preview for a Community Edition contribution
 schema-version = 1
 
 [distro]
@@ -95,43 +95,43 @@ astrid-version = "=0.9.4"
 
 [[capsule]]
 name = "astrid-capsule-openai-compat"
-source = "@unicity-aos/capsule-openai-compat"
+source = "capsules/astrid-capsule-openai-compat.capsule"
 version = "0.2.0"
 group = "llm"
 
 [[capsule]]
 name = "astrid-capsule-react"
-source = "@unicity-aos/capsule-react"
+source = "capsules/astrid-capsule-react.capsule"
 version = "0.2.2"
 
 [[capsule]]
 name = "astrid-capsule-memory"
-source = "@unicity-aos/capsule-memory"
+source = "capsules/astrid-capsule-memory.capsule"
 version = "0.2.0"
 
 [[capsule]]
 name = "astrid-capsule-session"
-source = "@unicity-aos/capsule-session"
+source = "capsules/astrid-capsule-session.capsule"
 version = "0.2.0"
 
 [[capsule]]
 name = "astrid-capsule-fs"
-source = "@unicity-aos/capsule-fs"
+source = "capsules/astrid-capsule-fs.capsule"
 version = "0.2.0"
 
 [[capsule]]
 name = "astrid-capsule-http"
-source = "@unicity-aos/capsule-http"
+source = "capsules/astrid-capsule-http.capsule"
 version = "0.1.1"
 
 [[capsule]]
 name = "astrid-capsule-shell"
-source = "@unicity-aos/capsule-shell"
+source = "capsules/astrid-capsule-shell.capsule"
 version = "0.2.0"
 
 [[capsule]]
 name = "astrid-capsule-cli"
-source = "@unicity-aos/capsule-cli"
+source = "capsules/astrid-capsule-cli.capsule"
 version = "0.2.0"
 role = "uplink"
 `;
@@ -304,9 +304,10 @@ const commands = [
         <div class="card binstall">
           <h2 class="binstall-title">Run it as its own daemon</h2>
           <p class="dim binstall-note">
-            The builder would hand you these. Save the Distro.toml, then point
-            <code>aos init</code> at it: it installs every capsule, prompts for
-            any keys, and writes a per-agent lockfile.
+            This manifest is a composition preview, not an install input.
+            <code>aos init</code> installs the fixed Unicity CE composition
+            embedded in the signed AOS release; it does not accept this preview
+            as a replacement distribution.
           </p>
           <ol class="cmd-list">
             {

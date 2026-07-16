@@ -19,9 +19,7 @@ cargo check --locked --workspace
 ```text
 aos-ce/
 ├── crates/
-│   ├── unicity-aos/             # product CLI
-│   ├── unicity-aos-bootstrap/   # product home and migration
-│   └── unicity-aos-health/      # loopback health projection
+│   └── unicity-aos-bootstrap/   # product CLI, home, migration, and health
 ├── capsules/
 │   ├── capsule-react/
 │   ├── capsule-session/

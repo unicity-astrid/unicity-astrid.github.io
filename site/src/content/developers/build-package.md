@@ -27,7 +27,7 @@ Use the released Astrid build tooling through the product's pinned development
 environment:
 
 ```sh
-aos capsule build --release
+aos capsule build
 ```
 
 The supported build produces an artifact under `dist/`. The exact filename is
