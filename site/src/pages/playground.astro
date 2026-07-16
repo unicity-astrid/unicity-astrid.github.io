@@ -4,17 +4,17 @@ import Base from '../layouts/Base.astro';
 
 <Base
   title="Playground — build a capsule in your tab"
-  description="Write a capsule, install it against the real Unicity Astrid OS kernel running in your browser, and watch real capability checks allow and deny it."
+  description="Write a capsule against the in-browser Astrid Runtime engine and watch real capability checks allow and deny it."
 >
   <main class="pg wrap">
     <header class="pg-head">
       <p class="eyebrow">playground</p>
       <h1>Build a capsule. Install it. Right here.</h1>
       <p class="prose dim pg-lede">
-        This page runs the real Unicity Astrid OS kernel in your tab. Write a small
+        This page runs Astrid Runtime, the engine beneath Unicity AOS, in your tab. Write a small
         capsule below, tick the powers you want it to have, and install it.
         Every power it uses goes through a real capability check, and every
-        decision lands on the real audit chain. Untick a box and watch the
+        decision lands on this tab's runtime-local audit chain. Untick a box and watch the
         kernel say no.
       </p>
       <p class="mono pg-honesty" data-dock="playground">
@@ -25,7 +25,7 @@ import Base from '../layouts/Base.astro';
     </header>
 
     <div class="pg-offline mono" id="pg-offline" hidden>
-      ○ Unicity Astrid OS isn’t running in this browser. The playground needs the live
+      ○ Astrid Runtime isn’t running in this browser. The playground needs the live
       engine in your tab; try a current browser.
     </div>
 
@@ -90,10 +90,9 @@ import Base from '../layouts/Base.astro';
           <div class="card">
             <p class="mono pg-card-title">prompt-builder, the real one</p>
             <p class="prose dim">
-              This is not a demo written for the website. It is the actual
-              prompt-builder capsule from the Unicity Astrid OS capsule fleet, the same
-              WebAssembly that assembles prompts in production, transpiled for
-              the browser and wired to the live kernel in this tab. Its
+              This is not a capsule invented for the website. It is built from
+              the prompt-builder capsule source in the AOS CE composition,
+              transpiled for the browser and wired to the live kernel in this tab. Its
               publishes land on the real bus. Its storage is the real kernel
               KV. Open devtools if you want to check.
             </p>
@@ -125,7 +124,7 @@ import Base from '../layouts/Base.astro';
     const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
 
     // Module state survives client-router navigations (the guest keeps
-    // running while you read the book); the DOM does not. wire() re-binds
+    // running while you navigate the site); the DOM does not. wire() re-binds
     // everything on each visit, and the feeds re-render from module logs.
 
     // ---- tabs ----
@@ -346,7 +345,7 @@ async function on_event(topic, payload) {
           astridHookTrigger(hook: string, payload: Uint8Array): { action?: string } | undefined;
         };
         const request = {
-          system_prompt: 'You are the Unicity Astrid OS site guide, a secure agent runtime assistant.',
+          system_prompt: 'You are the Unicity AOS site guide, a secure agent runtime assistant.',
           request_id: 'playground-req-0001',
           model: 'claude-fable-5',
           provider: 'anthropic',

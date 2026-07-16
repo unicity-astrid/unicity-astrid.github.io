@@ -30,7 +30,7 @@
 
 import type { AstridBridge } from './kernel';
 import { completeOpenAi, pickModel } from './local-agent';
-import { searchBook, type Chapter } from './book-lens';
+import { searchGuide, type Chapter } from './guide-lens';
 
 // Model id the seeded provider selection carries; must match local-agent's.
 // Set from the shared platform-aware picker at boot; the default only
@@ -208,10 +208,10 @@ const pageResponders: [string, (payload: string, from: string) => void][] = [
       } catch {
         /* leave empty; react falls back to its default session */
       }
-      fleetPublish('astrid-web', 'spark.v1.response.ready', JSON.stringify({
+      fleetPublish('unicity-aos-site', 'spark.v1.response.ready', JSON.stringify({
         session_id: sessionId,
         prompt:
-          'You are the Astrid site guide, an agent running on the real Astrid kernel inside the visitor’s browser tab. Astrid is NOT hypothetical, simulated, or a concept: it is a real, shipped operating system for AI agents, and a real instance of it is running in this tab right now — you are running on it. Be brief, concrete, and honest. You are living proof that agents on Astrid are sandboxed WebAssembly with capability-gated powers.' +
+          'You are the Unicity AOS developer guide, an agent running locally in the visitor’s browser on Astrid Runtime. Unicity AOS is the product distribution; Astrid is the neutral operating-system runtime beneath it. Be brief, concrete, and honest. Answer only from the supplied developer-guide context and say when that context does not establish an answer.' +
           (pendingGrounding.get(sessionId) ?? ''),
       }));
     },
@@ -311,7 +311,7 @@ async function llmLeg(provider: Runtime, handler: string, payload: string): Prom
     console.warn('[fleet] llm leg failed:', err);
     // Surface the failure as a real stream error event so react's turn
     // terminates through its own error path instead of hanging.
-    fleetPublish('astrid-web', 'llm.v1.stream.openai-compat', JSON.stringify({
+    fleetPublish('unicity-aos-site', 'llm.v1.stream.openai-compat', JSON.stringify({
       type: 'llm_stream_event',
       request_id: (JSON.parse(payload) as { request_id?: string }).request_id ?? '',
       event: { Error: `local model failed: ${err instanceof Error ? err.message : err}` },
@@ -339,7 +339,7 @@ function hostFor(name: string): Record<string, unknown> {
         messages: msgs.map((m) => ({
           topic: m.topic,
           payload: m.payload,
-          sourceId: 'astrid-web',
+          sourceId: 'unicity-aos-site',
           principal: { tag: 'system' as const },
         })),
         dropped: 0n,
@@ -555,26 +555,26 @@ export function toggleFleetCapsule(name: string): void {
 }
 
 /**
- * Page-side entry: retrieve book grounding for the question, stage it for
+ * Page-side entry: retrieve developer-guide grounding for the question, stage it for
  * the spark responder, then publish the real user prompt into the fleet.
  * Returns the chapters used so the caller can show what grounded the turn.
  */
 export async function fleetAsk(sessionId: string, text: string): Promise<Chapter[]> {
   let chapters: Chapter[] = [];
   try {
-    chapters = await searchBook(text, 2);
+    chapters = await searchGuide(text, 2);
   } catch {
     /* index unavailable; the turn runs on the base prompt alone */
   }
   pendingGrounding.set(
     sessionId,
     chapters.length
-      ? '\n\nBook excerpts relevant to the visitor’s question:\n\n' +
+      ? '\n\nDeveloper Guide excerpts relevant to the visitor’s question:\n\n' +
         chapters.map((c) => `## ${c.title}\n${c.text.slice(0, 1400)}`).join('\n\n') +
         '\n\nAnswer only from these excerpts. If they do not cover the question, say so and name the closest chapter.'
       : '',
   );
-  fleetPublish('astrid-web', 'user.v1.prompt', JSON.stringify({
+  fleetPublish('unicity-aos-site', 'user.v1.prompt', JSON.stringify({
     type: 'user_input',
     text,
     session_id: sessionId,

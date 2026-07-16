@@ -6,6 +6,7 @@
 import Base from '../layouts/Base.astro';
 import CapsuleRing from '../components/CapsuleRing.astro';
 import Hero from '../components/Hero.astro';
+import { AOS_RELEASE } from '../lib/release';
 
 const shape = [
   {
@@ -26,7 +27,7 @@ const shape = [
     tone: 'grant',
     k: '03',
     title: 'Power that only narrows',
-    body: 'Capabilities are signed tokens, not prompt instructions. A capsule can only hand its helpers less than it holds, never more. Every grant and denial lands on an audit chain you can read.',
+    body: 'Capabilities are signed tokens, not prompt instructions. A capsule can only hand its helpers less than it holds, never more. Every grant and denial lands on the runtime-local audit chain you can read. Unicity Audit on the blockchain is a separate product integration.',
     href: '/how-it-works/',
     hrefLabel: 'See it proven live',
   },
@@ -34,14 +35,14 @@ const shape = [
 ---
 
 <Base
-  title="Unicity Astrid OS — a modular operating system for AI agents"
-  description="Every ability is a sealed capsule: the model, the memory, the tools, the guards. Snap them together into an agent, swap any part later, and it can never take more than you gave. Unicity Astrid OS runs underneath the agent you already use. This page runs the real kernel in your tab."
+  title="Unicity AOS — a modular operating system for AI agents"
+  description="Unicity AOS is the modular Agent Operating System: Community and Enterprise editions, capsules, CLI, HTTP, and support, built on Astrid Runtime. This page runs the real runtime in your browser."
 >
   <main>
     <CapsuleRing />
     <Hero />
 
-    <section class="home-shape wrap" aria-label="What Unicity Astrid OS is">
+    <section class="home-shape wrap" aria-label="What Unicity AOS is">
       <div class="shape-grid">
         {
           shape.map((s) => (
@@ -70,8 +71,9 @@ const shape = [
           <p class="prose dim">
             Pick where it lives, start from an archetype, then mix and match
             capsules from the registry. Watch its manifest and its keys assemble
-            as you go. The builder is a preview today; the capsules it is made of
-            are real and on GitHub now.
+            as you go. The builder is a composition preview today; it cannot
+            assemble or install a distribution yet. Capsule source is available
+            in the AOS CE repository.
           </p>
           <div class="home-ctas">
             <a class="btn btn-primary" href="/build/">See the builder →</a>
@@ -94,28 +96,20 @@ const shape = [
     <section class="home-next wrap">
       <a class="card next-card" href="/how-it-works/">
         <p class="mono next-k">The tour</p>
-        <h3 class="next-title">Watch the whole machine run</h3>
+        <h3 class="next-title">Watch the runtime engine work</h3>
         <p class="dim next-body">
-          The kernel, the capsules, the capability gate, the audit chain. Every
-          element on that page is driven by the real kernel in your tab.
+          The kernel, capsules, capability gate, and runtime-local audit chain.
+          Every interactive element is driven by Astrid Runtime in your tab.
         </p>
         <span class="mono next-go">How it works →</span>
       </a>
-      <a class="card next-card" href="/book/">
-        <p class="mono next-k">The book</p>
-        <h3 class="next-title">Read it end to end</h3>
-        <p class="dim next-body">
-          The canonical reference: kernel, capsules, the host ABI, the bus, and
-          the security model. It ships with the OS.
-        </p>
-        <span class="mono next-go">Open the book →</span>
-      </a>
       <a class="card next-card" href="/start/">
         <p class="mono next-k">Get it</p>
-        <h3 class="next-title">Install Unicity Astrid OS</h3>
+        <h3 class="next-title">Install Unicity AOS</h3>
         <p class="dim next-body">
-          One command from GitHub Releases. Plugins for Claude, Grok, and Codex
-          install only when those hosts are on the machine.
+          {AOS_RELEASE.available
+            ? `Install AOS ${AOS_RELEASE.version} from its verified GitHub release.`
+            : `AOS ${AOS_RELEASE.version} is staged. Stable, dev, nightly, Homebrew, and AOS Oracle installs remain closed.`}
         </p>
         <span class="mono next-go">Install →</span>
       </a>

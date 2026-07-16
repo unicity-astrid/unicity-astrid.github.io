@@ -1,6 +1,11 @@
 ---
 /** Section 8 — get started + footer. */
 import unicityMark from '../assets/unicity-wordmark.svg?raw';
+import { AOS_RELEASE } from '../lib/release';
+
+const startCommand = AOS_RELEASE.available
+  ? `$ ${AOS_RELEASE.installCommand}\n$ aos init`
+  : `Installer staged for AOS ${AOS_RELEASE.version}\nStable, dev, and nightly channels are closed.`;
 ---
 
 <section class="start hairline-top" id="start">
@@ -10,16 +15,14 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
       <p class="dim">
         One daemon. Every frontend is an uplink; every ability is a capsule.
       </p>
-      <pre class="card start-term"><code><span class="dim">$</span> brew install unicity-astrid/tap/astrid
-<span class="dim">$</span> astrid start</code></pre>
+      <pre class="card start-term"><code>{startCommand}</code></pre>
     </div>
     <nav class="start-links mono" aria-label="Project links">
       <a href="/start/">Install →</a>
       <a href="/registry/">The registry <span class="dim">· soon</span></a>
-      <a href="https://github.com/unicity-astrid/astrid">github.com/unicity-astrid</a>
-      <a href="https://github.com/unicity-astrid/rfcs">The RFCs</a>
-      <a href="https://github.com/unicity-astrid/sdk-rust">Capsule SDK (Rust)</a>
-      <a href="/book/">The book</a>
+      <a href="https://github.com/unicity-aos/aos-ce">github.com/unicity-aos</a>
+      <a href="https://github.com/astrid-runtime/astrid">Astrid Runtime</a>
+      <a href="https://github.com/astrid-runtime/sdk-rust">Capsule SDK (Rust)</a>
     </nav>
   </div>
   <footer class="footer">
@@ -27,7 +30,7 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
       <p class="mono dim footer-tag">
         Run AI agents and the tools they use without having to trust them.
       </p>
-      <p class="mono footer-fine" id="footer-live">UNICITY ASTRID OS</p>
+      <p class="mono footer-fine" id="footer-live">UNICITY AOS</p>
     </div>
     <div class="wrap footer-made">
       <a
@@ -37,7 +40,7 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
         set:html={unicityMark}
       />
       <p class="mono footer-fine">
-        Unicity Astrid OS is an open project, created and stewarded by
+        Unicity AOS is open source, created and stewarded by
         <a href="https://www.unicity.ai/">Unicity</a> · © 2026 Unicity
       </p>
     </div>
@@ -46,7 +49,15 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
 
 <style>
   .start {
+    /* Base's <main> owns this clearance for page content. This shared scene
+       lives after <slot>, so it must take the same offset itself or it will
+       sit on the persistent runtime spine. */
+    padding-left: calc(var(--rail-x) + 1rem);
     padding-top: var(--s-8);
+  }
+
+  .prose {
+    min-width: 0;
   }
 
   .start-grid {
@@ -69,6 +80,7 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
   }
 
   .start-term {
+    max-width: 100%;
     margin-top: var(--s-3);
     padding: var(--s-3);
     font-size: var(--step-0);
@@ -142,6 +154,12 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
     height: 20px;
     width: auto;
   }
+
+  @media (max-width: 640px) {
+    .start {
+      padding-left: calc(var(--rail-x) + 0.75rem);
+    }
+  }
 </style>
 
 <script>
@@ -157,7 +175,7 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
     setInterval(() => {
       const el = document.getElementById('footer-live');
       const bridge = kernel();
-      if (el && bridge) el.textContent = `UNICITY ASTRID OS · ALIVE IN THIS TAB · ${bridge.eventsRouted()} MESSAGES CARRIED`;
+      if (el && bridge) el.textContent = `UNICITY AOS · ALIVE IN THIS TAB · ${bridge.eventsRouted()} MESSAGES CARRIED`;
     }, 2000);
   });
 </script>

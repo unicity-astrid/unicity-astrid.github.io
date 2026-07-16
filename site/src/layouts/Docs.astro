@@ -4,8 +4,8 @@ import type { NavGroup } from '../lib/docs-nav';
 import type { MarkdownHeading } from 'astro';
 
 interface Props {
-  bookTitle: string;
-  basePath: string; // '/book' | '/handbook'
+  guideTitle: string;
+  basePath: string;
   title: string;
   nav: NavGroup[];
   currentSlug: string;
@@ -14,14 +14,14 @@ interface Props {
   next?: { title: string; slug: string } | undefined;
 }
 
-const { bookTitle, basePath, title, nav, currentSlug, headings, prev, next } = Astro.props;
+const { guideTitle, basePath, title, nav, currentSlug, headings, prev, next } = Astro.props;
 const toc = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
 ---
 
-<Base title={`${title} · ${bookTitle}`} description={`${bookTitle}: ${title}`}>
+<Base title={`${title} · ${guideTitle}`} description={`${guideTitle}: ${title}`}>
   <main class="docs">
-    <nav class="docs-nav" aria-label={bookTitle}>
-      <p class="mono docs-nav-title">{bookTitle}</p>
+    <nav class="docs-nav" id="developer-guide-navigation" aria-label={guideTitle}>
+      <p class="mono docs-nav-title">{guideTitle}</p>
       {
         nav.map((group) => (
           <section class="docs-group">
@@ -228,10 +228,11 @@ const toc = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
 </style>
 
 <style is:global>
-  /* reading typography for rendered book markdown */
+  /* Reading typography for rendered developer-guide Markdown. */
   .doc-prose {
     max-width: 46rem;
     line-height: 1.75;
+    min-width: 0;
   }
 
   .doc-prose h1,
@@ -302,7 +303,11 @@ const toc = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
 
   .doc-prose table {
     border-collapse: collapse;
-    width: 100%;
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
     margin-block: 0 1.2em;
     font-size: var(--step--1);
   }

@@ -79,7 +79,7 @@ export function createLiveHost(bridge: AstridBridge, opts: LiveHostOptions = {})
         messages: entries.map((e) => ({
           topic: e.topic,
           payload: typeof e.data === 'string' ? e.data : JSON.stringify(e.data),
-          sourceId: 'astrid-web',
+          sourceId: 'unicity-aos-site',
           principal: { tag: 'system' as const },
         })),
         dropped: this.#queue.dropped(),

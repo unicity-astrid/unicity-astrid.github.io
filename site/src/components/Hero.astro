@@ -4,13 +4,14 @@
  *  is waking up in this tab. The eye itself lives on the page-wide fixed
  *  layer (CapsuleRing, mounted by the page), not inside the hero. */
 import unicityMark from '../assets/unicity-wordmark.svg?raw';
+import { AOS_RELEASE } from '../lib/release';
 ---
 
 <header class="hero" id="top">
   <div class="hero-stage">
     <div class="wrap hero-inner">
     <p class="eyebrow hero-maker">
-      Unicity Astrid OS <span class="hero-by">· by</span>
+      Unicity AOS <span class="hero-by">· by</span>
       <a
         href="https://www.unicity.ai"
         target="_blank"
@@ -18,7 +19,6 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
         aria-label="Unicity"
         set:html={unicityMark}
       />
-      <span class="hero-by">project</span>
     </p>
     <h1 class="hero-title">
       A modular operating system<br />for <span class="gradient-text">AI agents</span>.
@@ -26,8 +26,8 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
     <p class="hero-sub prose">
       Every ability is a sealed capsule: the model, the memory, the tools, the
       guards. Snap them together into an agent, swap any part later, and it can
-      never take more than you gave it. Unicity Astrid OS slots in underneath the agent you
-      already use.
+      never take more than you gave it. Unicity AOS brings the runtime,
+      distribution, and product experience together for the agent you already use.
     </p>
     <p class="hero-kicker">
       Let your AI actually do things, without handing over the keys.
@@ -35,21 +35,27 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
 
     <div class="hero-install" data-dock="install">
       <div class="hero-cmd-box">
-        <code class="hero-cmd mono" id="hero-install-cmd"
-          >curl -fsSL https://astridos.org/install.sh | sh</code
-        >
-        <button
-          class="mono hero-copy"
-          type="button"
-          data-copy="curl -fsSL https://astridos.org/install.sh | sh"
-          aria-label="Copy install command"
-        >
-          copy
-        </button>
+        <code class="hero-cmd mono" id="hero-install-cmd">{AOS_RELEASE.installCommand}</code>
+        {
+          AOS_RELEASE.available && (
+            <button
+              class="mono hero-copy"
+              type="button"
+              data-copy={AOS_RELEASE.installCommand}
+              aria-label="Copy install command"
+            >
+              copy
+            </button>
+          )
+        }
       </div>
       <p class="hero-install-note mono dim">
-        Install or upgrade · detects Claude, Grok, Codex ·
-        <a href="/start/">Homebrew, Cargo, plugins →</a>
+        {
+          AOS_RELEASE.available
+            ? 'Stable channel · signed AOS product bundle · '
+            : `Stable command staged for ${AOS_RELEASE.version}; all release channels are closed · `
+        }
+        <a href="/start/">release status and integrations →</a>
       </p>
     </div>
 
@@ -59,12 +65,13 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
       <a class="btn" href="/build/">Build your agent</a>
     </div>
     <p class="hero-works mono">
-      Plugins for <strong>Claude Code</strong>, <strong>Grok Build</strong>, and
-      <strong>Codex</strong> — wired when those hosts are on the machine.
+      {AOS_RELEASE.oracles.available ? 'AOS Oracle plugins for' : 'AOS Oracle plugins staged for'}
+      {' '}<strong>Claude Code</strong>, <strong>Grok Build</strong>, and <strong>Codex</strong>
+      {' '}— identity <strong>{AOS_RELEASE.oracles.pluginIdentity}</strong>.
     </p>
     <p class="hero-claim mono" id="hero-claim" data-state="booting" data-dock="kernel">
       <span class="hero-claim-dot" aria-hidden="true"></span>
-      <span id="hero-claim-text">Waking Unicity Astrid OS up in this tab…</span>
+      <span id="hero-claim-text">Starting the Astrid Runtime inside Unicity AOS…</span>
     </p>
     </div>
   </div>
@@ -180,7 +187,7 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
     }
   }
 
-  /* Product mark: Unicity Astrid OS, created and stewarded by Unicity. */
+  /* Product mark: Unicity AOS, created and stewarded by Unicity. */
   .hero-maker {
     display: flex;
     align-items: center;
@@ -369,9 +376,9 @@ import unicityMark from '../assets/unicity-wordmark.svg?raw';
     const bridge = kernel();
     claim.dataset.state = status;
     if (status === 'online' && bridge) {
-      text.textContent = 'This page is static. Unicity Astrid OS is not — it’s running in this tab right now';
+      text.textContent = 'This page is static. Astrid Runtime, the engine beneath Unicity AOS, is running in this tab';
     } else if (status === 'offline') {
-      text.textContent = 'Unicity Astrid OS can’t run in this browser · showing the story without the live demo';
+      text.textContent = 'Astrid Runtime can’t run in this browser · showing the AOS story without the live engine';
     }
   }
 

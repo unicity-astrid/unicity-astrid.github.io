@@ -1,75 +1,99 @@
 ---
 import Base from '../layouts/Base.astro';
+import { AOS_RELEASE } from '../lib/release';
 
-/** Install page — command in the hero, one paste per tab. Keep RELEASE in
- *  sync with the published Homebrew / crates.io line when it moves. */
+/** Release-status and installation page. Release metadata has one owner. */
 
-const RELEASE = 'v0.9.4';
+const RELEASE = AOS_RELEASE.version;
 
 /**
- * One paste each. Layout:
- *   One command  → shell installs *and* upgrades; detects hosts (new ones wire on re-run)
- *   Homebrew / Cargo → package-manager upgrade/install paths (not the shell)
- *   Claude / Grok / Codex → marketplace plugin install only (base via One command)
+ * One paste each. Stable is the installer default; development and nightly are
+ * always explicit. Every product and Oracle command fails closed behind its
+ * release metadata flag.
  */
 const methods = [
   {
-    id: 'one',
-    label: 'One command',
-    cmd: 'curl -fsSL https://astridos.org/install.sh | sh',
-    note: 'One command: CLI, base, then your coding hosts — it lists what it detects and asks once (Enter = wire all). Re-run to upgrade.',
+    id: 'stable',
+    label: AOS_RELEASE.channels.stable.label,
+    cmd: AOS_RELEASE.channels.stable.command,
+    available: AOS_RELEASE.channels.stable.available,
+    unavailableLabel: 'stable closed',
+    note: AOS_RELEASE.channels.stable.available
+      ? 'Installs the approved AOS product bundle. Re-run to upgrade on the stable channel.'
+      : `Default-channel contract for ${AOS_RELEASE.version}. Stable remains closed until the matching signed AOS release is approved and published.`,
   },
   {
-    id: 'brew',
+    id: 'dev',
+    label: AOS_RELEASE.channels.dev.label,
+    cmd: AOS_RELEASE.channels.dev.command,
+    available: AOS_RELEASE.channels.dev.available,
+    unavailableLabel: 'dev closed',
+    note: `${AOS_RELEASE.channels.dev.note} This is a staged command example, not a live download.`,
+  },
+  {
+    id: 'nightly',
+    label: AOS_RELEASE.channels.nightly.label,
+    cmd: AOS_RELEASE.channels.nightly.command,
+    available: AOS_RELEASE.channels.nightly.available,
+    unavailableLabel: 'nightly closed',
+    note: `${AOS_RELEASE.channels.nightly.note} This is a staged command example, not a live download.`,
+  },
+  {
+    id: 'homebrew',
     label: 'Homebrew',
-    cmd: 'brew upgrade unicity-astrid/tap/astrid || brew install unicity-astrid/tap/astrid',
-    note: `CLI only · ${RELEASE}. Prefer One command for releases → ~/.astrid/bin plus host plugins.`,
-  },
-  {
-    id: 'cargo',
-    label: 'Cargo',
-    cmd: 'cargo install astrid',
-    note: 'CLI only · builds latest from crates.io (re-run to upgrade). Host plugins: use One command after.',
+    cmd: AOS_RELEASE.homebrew.command,
+    available: AOS_RELEASE.homebrew.available,
+    unavailableLabel: 'formula pending',
+    note: AOS_RELEASE.homebrew.available
+      ? 'Installs the signed AOS product release and its pinned Astrid Runtime bundle.'
+      : `The tap automation is ready; the ${AOS_RELEASE.version} formula publishes when the first product release dispatch completes.`,
   },
   {
     id: 'claude',
     label: 'Claude Code',
-    cmd: 'claude plugin marketplace add unicity-astrid/oracles && claude plugin install astrid@astrid-oracles',
-    note: 'Editor plugin only (name: astrid). Base runtime + distro: One command first, or re-run after Claude is installed.',
+    cmd: AOS_RELEASE.oracles.commands.claude,
+    available: AOS_RELEASE.oracles.available,
+    unavailableLabel: 'plugin pending',
+    note: `AOS Oracle plugin (${AOS_RELEASE.oracles.pluginIdentity}). It opens only with the matching AOS base release.`,
   },
   {
     id: 'grok',
     label: 'Grok Build',
-    cmd: 'grok plugin marketplace add unicity-astrid/oracles && grok plugin install astrid@unicity-astrid/oracles --trust',
-    note: 'Editor plugin only (name: astrid · pinned by repo, not marketplace name). Base runtime + distro: One command first, or re-run after Grok is installed.',
+    cmd: AOS_RELEASE.oracles.commands.grok,
+    available: AOS_RELEASE.oracles.available,
+    unavailableLabel: 'plugin pending',
+    note: `AOS Oracle plugin (${AOS_RELEASE.oracles.pluginIdentity}). It opens only with the matching AOS base release.`,
   },
   {
     id: 'codex',
     label: 'Codex',
-    cmd: 'codex plugin marketplace add unicity-astrid/oracles && codex plugin add astrid@astrid-oracles',
-    note: 'Editor plugin only (name: astrid · .agents/plugins; codex uses `add`, not `install`). Base runtime + distro: One command first.',
+    cmd: AOS_RELEASE.oracles.commands.codex,
+    available: AOS_RELEASE.oracles.available,
+    unavailableLabel: 'plugin pending',
+    note: `AOS Oracle plugin (${AOS_RELEASE.oracles.pluginIdentity}; Codex uses \`add\`). It opens only with the matching AOS base release.`,
   },
 ] as const;
 
-const defaultMethod = 'one';
+const defaultMethod = AOS_RELEASE.defaultChannel;
 ---
 
 <Base
-  title="Install Unicity Astrid OS"
-  description="One command installs and upgrades Unicity Astrid OS, plus optional host plugins for Claude, Grok, and Codex."
+  title="Install Unicity AOS"
+  description={AOS_RELEASE.available
+    ? 'Install Unicity AOS and connect supported coding hosts.'
+    : `Release status for Unicity AOS ${RELEASE}; product packages are staged and not yet published.`}
 >
   <main class="start wrap">
     <header class="start-hero">
       <p class="eyebrow">Install</p>
       <div class="start-name-row">
-        <h1>Unicity Astrid OS</h1>
+        <h1>Unicity AOS</h1>
         <span class="mono start-ver">{RELEASE}</span>
       </div>
       <p class="prose dim start-lede">
-        One command installs and upgrades. Host plugins for Claude Code, Grok
-        Build, and Codex wire when those apps are on the machine — re-run after
-        you add one. Prefer to feel it first?
-        <a href="/playground/">Playground</a> runs the real kernel in this tab.
+        {AOS_RELEASE.available
+          ? 'Stable is the default channel. Development and nightly builds require an explicit channel selection, and host integrations wire only with your approval.'
+          : `AOS ${RELEASE} is staged. Stable, dev, nightly, Homebrew, and AOS Oracle installs are all closed; the commands below document the release contract without claiming that any channel is published.`}
       </p>
 
       <section
@@ -118,8 +142,9 @@ const defaultMethod = 'one';
                   type="button"
                   data-copy={m.cmd}
                   aria-label={`Copy: ${m.cmd}`}
+                  disabled={!m.available}
                 >
-                  copy
+                  {m.available ? 'copy' : m.unavailableLabel}
                 </button>
               </div>
               <p class="dim start-note">{m.note}</p>
@@ -130,29 +155,20 @@ const defaultMethod = 'one';
 
       <p class="mono start-meta dim">
         MIT or Apache-2.0 ·
-        <a href="https://github.com/unicity-astrid/astrid">GitHub</a> ·
-        <a href="https://github.com/unicity-astrid/oracles">plugins</a> ·
-        <a href="https://crates.io/crates/astrid">crates.io</a> ·
-        <a href="/book/">The book</a>
+        <a href="https://github.com/astrid-runtime/astrid">Runtime</a> ·
+        <a href="https://github.com/unicity-aos/oracles">plugins</a> ·
+        <a href="https://github.com/unicity-aos/aos-ce/releases">AOS releases</a>
       </p>
     </header>
 
     <section class="start-links">
-      <a class="card start-link" href="/playground/">
-        <span class="mono start-link-k">No install</span>
-        <span>Write a capsule in this tab against the live kernel</span>
+      <a class="card start-link" href="/developers/get-started/">
+        <span class="mono start-link-k">Develop</span>
+        <span>Build a capsule against the AOS workspace</span>
       </a>
-      <a class="card start-link" href="/book/">
-        <span class="mono start-link-k">The book</span>
-        <span>How the machine works, part by part</span>
-      </a>
-      <a class="card start-link" href="https://github.com/unicity-astrid/oracles">
+      <a class="card start-link" href="https://github.com/unicity-aos/oracles">
         <span class="mono start-link-k">Plugins</span>
-        <span>Claude · Grok · Codex for Unicity Astrid OS</span>
-      </a>
-      <a class="card start-link" href="/siri/">
-        <span class="mono start-link-k">Hey Siri</span>
-        <span>Ask the book by voice on any iPhone</span>
+        <span>Claude · Grok · Codex for Unicity AOS</span>
       </a>
     </section>
   </main>

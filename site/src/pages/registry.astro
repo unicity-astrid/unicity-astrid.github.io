@@ -3,8 +3,8 @@
  *  agent builder as its own, clearly separate, ghosted concept. Everything
  *  below the honesty banner is genuinely disabled and says so up front.
  *  The difference from a mockup: every capsule card is REAL — name,
- *  version, and description come from the fleet's own Capsule.toml files,
- *  and all of them are on GitHub today. Only the registry SERVICE (search,
+ *  version, and description track the AOS CE workspace's Capsule.toml files.
+ *  Only the registry SERVICE (search,
  *  tags, popularity, one-command install) is the part that's coming. */
 import Base from '../layouts/Base.astro';
 
@@ -18,24 +18,24 @@ interface Cap {
 
 const caps: Cap[] = [
   { name: 'http', v: '0.1.1', desc: 'The web for agents, behind the airlock', tags: ['tools'], hot: true },
-  { name: 'memory', v: '0.1.0', desc: 'Cross-session memory, injected into the prompt', tags: ['memory', 'prompt'], hot: true },
-  { name: 'react', v: '0.2.1', desc: 'The agent loop: stateless coordinator for reasoning and tools', tags: ['core'], hot: true },
-  { name: 'fs', v: '0.1.0', desc: 'Core filesystem tools', tags: ['tools'] },
+  { name: 'memory', v: '0.2.0', desc: 'Cross-session memory, injected into the prompt', tags: ['memory', 'prompt'], hot: true },
+  { name: 'react', v: '0.2.2', desc: 'The agent loop: stateless coordinator for reasoning and tools', tags: ['core'], hot: true },
+  { name: 'fs', v: '0.2.0', desc: 'Core filesystem tools', tags: ['tools'] },
   { name: 'shell', v: '0.2.0', desc: 'Shell execution, gated behind approval', tags: ['tools'] },
   { name: 'skills', v: '0.2.0', desc: 'Loads Agent Skills through the virtual filesystem', tags: ['tools', 'prompt'] },
-  { name: 'system', v: '0.1.0', desc: 'Lets the agent inspect and manage its own runtime', tags: ['tools'] },
+  { name: 'system', v: '0.2.0', desc: 'Lets the agent inspect and manage its own runtime', tags: ['tools'] },
   { name: 'forge', v: '0.1.0', desc: 'Tools and a Skill that teach a fresh LLM to build capsules', tags: ['dev'] },
   { name: 'openai', v: '0.2.0', desc: 'Native OpenAI model provider', tags: ['providers'] },
   { name: 'openai-compat', v: '0.2.0', desc: 'Any OpenAI-compatible provider: LM Studio, Ollama, llama.cpp', tags: ['providers'] },
   { name: 'registry', v: '0.2.0', desc: 'Discovers and manages the models available to the OS', tags: ['providers'] },
   { name: 'identity', v: '0.2.0', desc: 'Owns who the agent is and builds its system prompt', tags: ['prompt'] },
-  { name: 'prompt-builder', v: '0.1.0', desc: 'Assembles prompts, with hooks for anything to contribute', tags: ['prompt', 'core'] },
-  { name: 'context-engine', v: '0.1.0', desc: 'Compacts the context window when conversations run long', tags: ['prompt', 'core'] },
-  { name: 'agents', v: '0.1.0', desc: 'Injects AGENTS.md project instructions into the prompt', tags: ['prompt'] },
+  { name: 'prompt-builder', v: '0.2.0', desc: 'Assembles prompts, with hooks for anything to contribute', tags: ['prompt', 'core'] },
+  { name: 'context-engine', v: '0.2.0', desc: 'Compacts the context window when conversations run long', tags: ['prompt', 'core'] },
+  { name: 'agents', v: '0.2.0', desc: 'Injects AGENTS.md project instructions into the prompt', tags: ['prompt'] },
   { name: 'session', v: '0.2.0', desc: 'Persistent conversation store', tags: ['memory', 'core'] },
-  { name: 'router', v: '0.1.0', desc: 'Routes every tool call, so every tool call is governable', tags: ['core'] },
+  { name: 'router', v: '0.2.0', desc: 'Routes every tool call, so every tool call is governable', tags: ['core'] },
   { name: 'hook-bridge', v: '0.2.0', desc: 'Maps lifecycle events to semantic hooks', tags: ['core'] },
-  { name: 'users', v: '0.1.0', desc: 'Maps platform accounts to Astrid user identities', tags: ['core'] },
+  { name: 'users', v: '0.1.0', desc: 'Maps platform accounts to runtime principal identities', tags: ['core'] },
   { name: 'cli', v: '0.2.0', desc: 'The terminal frontend, bridged over a Unix socket', tags: ['frontends'] },
   { name: 'telegram', v: '0.1.0', desc: 'A Telegram bot as a frontend to your agent', tags: ['frontends'] },
 ];
@@ -47,23 +47,23 @@ const shelf = caps.filter((c) => !c.hot);
 
 <Base
   title="The Registry — coming soon"
-  description="Every ability is a sealed, signed capsule. Browse the shelf, install with one command. Coming soon; the capsules themselves are real and on GitHub today."
+  description="Preview the capsule catalog planned for Unicity AOS. The registry service is not live; the capsule sources and current workspace versions are public."
 >
   <main class="reg wrap">
     <header class="reg-head">
       <p class="eyebrow">The registry · coming soon</p>
       <h1>One shelf.<br />Every ability.</h1>
       <p class="prose dim reg-lede">
-        Every ability is a sealed capsule: permissions declared up front,
-        signed, installable into a running Unicity Astrid OS with one command. Open,
-        and owned by no model vendor.
+        Every ability is a sealed capsule with permissions declared up front.
+        The registry will make verified releases discoverable and installable
+        without tying the operating system to a model vendor.
       </p>
       <p class="mono reg-honesty">
         Concept preview · the registry service isn't live yet, so nothing
         below is clickable. The capsules themselves are real: these are
-        their true names, versions, and descriptions, and every one is
-        <a href="https://github.com/unicity-astrid">on GitHub today</a>.
-        You can also <a href="/playground/">build one in this tab</a>.
+        their current AOS CE names and workspace versions. Review the source in
+        <a href="https://github.com/unicity-aos/aos-ce/tree/main/capsules">the capsule workspace</a>
+        or follow the <a href="/developers/capsule-anatomy/">authoring guide</a>.
       </p>
     </header>
 
@@ -93,10 +93,10 @@ const shelf = caps.filter((c) => !c.hot);
                 {c.tags.map((t) => <span class="mono reg-card-tag">{t}</span>)}
               </div>
               <div class="reg-card-install mono">
-                <code>astrid capsule install {c.name}</code>
+                <code>aos capsule install {c.name}</code>
                 <span class="reg-copy">copy</span>
               </div>
-              <p class="mono reg-card-by dim">Signed · unicity · MIT or Apache-2.0</p>
+              <p class="mono reg-card-by dim">AOS CE workspace · MIT or Apache-2.0</p>
             </article>
           ))
         }
@@ -116,7 +116,7 @@ const shelf = caps.filter((c) => !c.hot);
                 {c.tags.map((t) => <span class="mono reg-card-tag">{t}</span>)}
               </div>
               <div class="reg-card-install mono">
-                <code>astrid capsule install {c.name}</code>
+                <code>aos capsule install {c.name}</code>
                 <span class="reg-copy">copy</span>
               </div>
             </article>
@@ -132,7 +132,8 @@ const shelf = caps.filter((c) => !c.hot);
         The shelf is the parts. The builder is where you snap them together:
         pick where your agent lives, start from an archetype, mix and match the
         capsules above, and it writes a real Distro.toml you install with one
-        command. That part is live today.
+        command. The page is a product-design preview; it does not assemble or
+        install anything yet.
       </p>
       <a class="btn btn-primary reg-builder-cta" href="/build/">Open the builder →</a>
     </section>

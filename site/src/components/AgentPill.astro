@@ -2,17 +2,17 @@
 /**
  * The agent pill: an oval input docked above the rail, bottom of viewport.
  * Two honest modes, labelled:
- *  - docs lens (default): finds book chapters for what you typed and for
+ *  - docs lens (default): finds developer-guide chapters for what you typed and for
  *    where you are on the page. Search, not intelligence; says so.
  *  - local agent (opt-in): WebLLM in your tab, weights downloaded only after
- *    a click that states the size. Answers grounded in the book, status
+ *    a click that states the size. Answers grounded in the developer guide, status
  *    streamed over the real bus.
  */
 ---
 
-<div class="pill-wrap" id="pill-wrap" hidden>
-  <div class="pill-panel card" id="pill-panel" hidden>
-    <div class="pill-status mono" id="pill-status" hidden></div>
+<div class="pill-wrap" id="pill-wrap">
+  <div class="pill-panel card" id="pill-panel" role="region" aria-label="Developer guide assistant" hidden>
+    <div class="pill-status mono" id="pill-status" role="status" aria-live="polite" hidden></div>
     <div class="pill-results" id="pill-results"></div>
     <div class="pill-progress" id="pill-progress" hidden>
       <div class="pill-progress-bar" id="pill-progress-bar"></div>
@@ -44,9 +44,9 @@
         <button class="pill-enable mono" id="pill-ep-cancel" type="button">Back</button>
       </div>
       <div id="pill-ep-manual" hidden>
-        <input class="pill-ep mono" id="pill-ep-url" type="url" placeholder="http://localhost:11434/v1" autocomplete="off" spellcheck="false" />
-        <input class="pill-ep mono" id="pill-ep-key" type="password" placeholder="API key (optional)" autocomplete="off" />
-        <input class="pill-ep mono" id="pill-ep-model" type="text" placeholder="Model name (optional)" autocomplete="off" spellcheck="false" />
+        <input class="pill-ep mono" id="pill-ep-url" type="url" aria-label="Model endpoint URL" placeholder="http://localhost:11434/v1" autocomplete="off" spellcheck="false" />
+        <input class="pill-ep mono" id="pill-ep-key" type="password" aria-label="Model API key" placeholder="API key (optional)" autocomplete="off" />
+        <input class="pill-ep mono" id="pill-ep-model" type="text" aria-label="Model name" placeholder="Model name (optional)" autocomplete="off" spellcheck="false" />
         <div>
           <button class="pill-enable mono" id="pill-ep-connect" type="button">Connect</button>
         </div>
@@ -62,11 +62,12 @@
   </div>
   <form class="pill-form" id="pill-form">
     <span class="pill-dot" id="pill-dot" data-state="lens" aria-hidden="true"></span>
+    <label class="visually-hidden" for="pill-input">Search the developer guide or ask the local agent</label>
     <input
       id="pill-input"
       class="pill-input mono"
       type="text"
-      placeholder="Ask the book…"
+      placeholder="Search the developer guide…"
       autocomplete="off"
       maxlength="200"
     />
@@ -96,7 +97,7 @@
     width: min(32rem, calc(100vw - 2 * var(--s-2)));
     display: grid;
     gap: 0.5rem;
-    /* Plays when the kernel unhides the pill: it arrives, not appears. */
+    /* Plays as the pill arrives on page load. */
     animation: pill-arrive 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
@@ -525,7 +526,7 @@
 
 <script>
   import { onKernel, type AstridBridge } from '../scripts/kernel';
-  import { searchBook, queryForSection, type Chapter } from '../scripts/book-lens';
+  import { searchGuide, queryForSection, type Chapter } from '../scripts/guide-lens';
   import { startNavContext, currentSection } from '../scripts/nav-context';
   import {
     enableAgent,
@@ -546,6 +547,8 @@
   const input = $('pill-input') as HTMLInputElement;
   const mode = $('pill-mode');
   const consent = $('pill-consent');
+  const OPTIN_KEY = 'aos-agent-optin';
+  const LEGACY_OPTIN_KEY = 'astrid-agent-optin';
 
   let bridge: AstridBridge | null = null;
 
@@ -574,10 +577,14 @@
   onKernel((status, b) => {
     if (status !== 'online' || !b) return;
     bridge = b;
-    wrap.hidden = false;
     startNavContext(b);
     // Prior opt-in: bring the agent straight back from the weight cache.
-    if (localStorage.getItem('astrid-agent-optin') === '1' && webGpuAvailable() && agentState() === 'off') {
+    const optedIn = localStorage.getItem(OPTIN_KEY) === '1' || localStorage.getItem(LEGACY_OPTIN_KEY) === '1';
+    if (optedIn) {
+      localStorage.setItem(OPTIN_KEY, '1');
+      localStorage.removeItem(LEGACY_OPTIN_KEY);
+    }
+    if (optedIn && webGpuAvailable() && agentState() === 'off') {
       startEngine(true);
     }
     // The pill renders agent status from the same bus events everyone else
@@ -616,12 +623,12 @@
     if (!chapters.length) {
       const p = document.createElement('p');
       p.className = 'ctx mono';
-      p.textContent = 'Nothing in the book matched that.';
+      p.textContent = 'Nothing in the developer guide matched that.';
       results.append(p);
     }
     for (const c of chapters) {
       const a = document.createElement('a');
-      a.href = `/book/${c.slug}/`;
+      a.href = c.url;
       const t = document.createElement('span');
       t.className = 't';
       t.textContent = c.title;
@@ -636,7 +643,7 @@
   // Focus reopens what you were doing: a conversation in progress comes
   // back (it survives navigation; the click-away that closed it should not
   // cost the thread). Otherwise, the contextual lens: where you are -> the
-  // chapters behind it.
+  // guide chapters behind it.
   input.addEventListener('focus', () => {
     if (!panel.hidden || input.value) return;
     if (transcript.length) {
@@ -646,7 +653,7 @@
     }
     const section = currentSection();
     if (!section) return;
-    void searchBook(queryForSection(section), 3).then((chapters) => {
+    void searchGuide(queryForSection(section), 3).then((chapters) => {
       if (input.value) return; // they started typing; don't stomp
       showPanel();
       renderChapters(chapters, `behind this section (${section}):`);
@@ -655,7 +662,6 @@
 
   // Opt-in is remembered: once you have enabled the agent, a hard reload
   // restores it straight from the browser's weight cache without re-asking.
-  const OPTIN_KEY = 'astrid-agent-optin';
   const chip = $('pill-enable');
   const progressWrap = $('pill-progress');
   const progressBar = $('pill-progress-bar');
@@ -681,7 +687,7 @@
         chip.textContent = '✦ AI on';
         input.placeholder = 'Ask the agent…';
         mode.textContent =
-          'Local agent running in your tab. Answers are grounded in the book, and it travels with you across pages.';
+          'Local agent running in your tab. Answers are grounded in the developer guide, and it travels with you across pages.';
       } else {
         chip.textContent = '✦ Enable AI';
         mode.textContent = 'Model load failed; the docs lens still works.';
@@ -743,6 +749,7 @@
           const row = document.createElement('div');
           row.className = 'pill-ep-card-row';
           const sel = document.createElement('select');
+          sel.setAttribute('aria-label', `${p.label} model`);
           for (const m of p.models) {
             const opt = document.createElement('option');
             opt.value = m;
@@ -778,6 +785,12 @@
     const s = agentState();
     if (s === 'ready' || s === 'loading') return;
     showPanel();
+    if (!bridge) {
+      mode.hidden = false;
+      mode.textContent =
+        'Developer guide search is ready. The local agent needs the in-browser runtime, which is still starting or unavailable in this browser.';
+      return;
+    }
     mode.hidden = true;
     if (!webGpuAvailable()) {
       // no GPU for a downloaded model, but a brought model lives elsewhere:
@@ -988,7 +1001,7 @@
           if (i > 0) ctx.append(' · ');
           const a = document.createElement('a');
           a.className = 'ref';
-          a.href = `/book/${r.slug}/`;
+          a.href = `/developers/${r.slug}/`;
           a.textContent = r.title;
           ctx.append(a);
         });
@@ -1011,7 +1024,7 @@
       fleetTurn = { role: 'assistant', text: '…' };
       transcript.push(fleetTurn);
       renderTranscript(true);
-      // fleetAsk retrieves book grounding first (it rides in the system
+      // fleetAsk retrieves developer-guide grounding first (it rides in the system
       // prompt), then publishes the turn; the refs it returns are the
       // chapters the answer is grounded in. Capture the turn locally:
       // fleetTurn is nulled once the final response lands.
@@ -1023,7 +1036,7 @@
       }
       return; // the final lands in the agent.v1.response subscription
     }
-    const chapters = await searchBook(q, 3);
+    const chapters = await searchGuide(q, 3);
     if (agentState() === 'ready' && bridge) {
       const history = transcript.map((t) => ({
         role: t.role,
@@ -1242,5 +1255,10 @@
   // Click-away closes the panel.
   document.addEventListener('click', (e) => {
     if (!wrap.contains(e.target as Node)) panel.hidden = true;
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || panel.hidden) return;
+    panel.hidden = true;
+    input.focus();
   });
 </script>

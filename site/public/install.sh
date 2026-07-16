@@ -1,546 +1,960 @@
-#!/usr/bin/env sh
-# install.sh — one command. That's the product.
-#
-#   curl -fsSL https://astridos.org/install.sh | sh
-#
-# One status line per step: box spinner + elapsed bar while it runs, a
-# checkmark when it lands. Does CLI + base home + detected host plugins
-# (marketplace) + host capsules. Re-run upgrades everything in place.
-#
-# Before writing into host apps it lists what it detected and asks once —
-# Enter wires all, names pick a subset, n skips. -y or no TTY never asks.
-#
-# Flags ride after `sh -s --`:
-#
-#   curl -fsSL https://astridos.org/install.sh | sh -s -- --host claude --verbose
+#!/bin/sh
 set -eu
 
-ORACLES_REPO="${ASTRID_ORACLES_REPO:-unicity-astrid/oracles}"
-DISTRO_BASE="${ASTRID_ORACLES_DISTRO_BASE:-https://raw.githubusercontent.com/${ORACLES_REPO}/main/distros}"
-ASTRID_RELEASE_REPO="${ASTRID_RELEASE_REPO:-unicity-astrid/astrid}"
-ASTRID_MANAGED_BIN="${ASTRID_HOME:-$HOME/.astrid}/bin"
-BREW_TAP="${ASTRID_BREW_TAP:-unicity-astrid/tap}"
-BREW_FORMULA="${ASTRID_BREW_FORMULA:-astrid}"
-
-VERBOSE=0
-NO_BREW=0
-BASE_ONLY=0
-SKIP_INIT=0
-ALL_HOSTS=0
-REQUESTED_HOSTS=""
-BIN_ROOT="${ASTRID_BIN_ROOT:-}"
-ASTRID=""
-FAILED=0
+AOS_RELEASE_REPO="${AOS_RELEASE_REPO:-unicity-aos/aos-ce}"
+AOS_TRUSTED_RELEASE_REPO=unicity-aos/aos-ce
+AOS_CHANNEL_INPUT="${AOS_CHANNEL-}"
+AOS_VERSION_INPUT="${AOS_VERSION-}"
+AOS_CHANNEL="${AOS_CHANNEL_INPUT:-stable}"
+AOS_HOME="${AOS_HOME:-$HOME/.aos}"
+AOS_BIN_DIR="${AOS_BIN_DIR:-$AOS_HOME/bin}"
+AOS_VERSION="$AOS_VERSION_INPUT"
+AOS_CHANNEL_BASE_URL="${AOS_CHANNEL_BASE_URL:-https://github.com/${AOS_RELEASE_REPO}/releases/download}"
+COSIGN_VERSION=v3.1.1
 ASSUME_YES=0
-SPIN_PID=""
-CLEAN_TMP=""
-SPIN_TTY=0
-[ -t 1 ] && SPIN_TTY=1
+SKIP_MIGRATION_PROMPT=0
+channel_explicit=0
+version_explicit=0
+installation_started=0
+release_committed=0
+release_backup=
+rollback=
+channel_root=
+channel_current_path=
+channel_generation_dir=
+install_lock=
+install_lock_acquired=0
 
-have() { command -v "$1" >/dev/null 2>&1; }
-say()  { printf '%s\n' "$*"; }
-
-# Run a subcommand quietly; pass its output through under --verbose.
-# stdin is /dev/null: subcommands are non-interactive and must never eat
-# terminal input — the host-selection prompt is the only /dev/tty reader.
-q() { if [ "$VERBOSE" -eq 1 ]; then "$@" </dev/null; else "$@" </dev/null >/dev/null 2>&1; fi; }
-
-# --- status bar: box spinner + elapsed rectangle ----------------------------
-spin_start() {
-  if [ "$SPIN_TTY" -eq 0 ] || [ "$VERBOSE" -eq 1 ]; then return 0; fi
-  _label="$1"
-  (
-    start="$(date +%s)"
-    i=0
-    while :; do
-      now="$(date +%s)"
-      el=$((now - start))
-      filled=$((el / 3))
-      [ "$filled" -gt 10 ] && filled=10
-      bar=""
-      j=0
-      while [ "$j" -lt 10 ]; do
-        if [ "$j" -lt "$filled" ]; then bar="${bar}▮"; else bar="${bar}▯"; fi
-        j=$((j + 1))
-      done
-      case "$i" in 0) f="◰" ;; 1) f="◳" ;; 2) f="◲" ;; *) f="◱" ;; esac
-      printf '\r\033[K%s %s %s %ss' "$f" "$_label" "$bar" "$el"
-      i=$(((i + 1) % 4))
-      sleep 0.2 2>/dev/null || sleep 1
-    done
-  ) &
-  SPIN_PID=$!
-}
-
-spin_stop() {
-  if [ -z "$SPIN_PID" ]; then return 0; fi
-  kill "$SPIN_PID" 2>/dev/null || true
-  wait "$SPIN_PID" 2>/dev/null || true
-  SPIN_PID=""
-  [ "$SPIN_TTY" -eq 1 ] && printf '\r\033[K'
-  return 0
-}
-
-ok()   { spin_stop; say "✓ $*"; }
-fail() { spin_stop; say "✗ $*"; FAILED=$((FAILED + 1)); }
-warn() { spin_stop; say "! $*"; }
-die()  { spin_stop; say "✗ $*" >&2; exit 1; }
-
-cleanup() {
-  spin_stop
-  if [ -n "$CLEAN_TMP" ]; then rm -rf "$CLEAN_TMP" 2>/dev/null || true; fi
-}
-trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+[ -z "$AOS_CHANNEL_INPUT" ] || channel_explicit=1
+if [ "$AOS_VERSION" = latest ]; then
+  AOS_VERSION=
+elif [ -n "$AOS_VERSION" ]; then
+  version_explicit=1
+fi
 
 usage() {
   cat <<'EOF'
-curl -fsSL https://astridos.org/install.sh | sh
+Install or upgrade Unicity AOS Community Edition.
 
-One command: CLI, base home, plugins + capsules for hosts on this machine.
-Detected hosts are listed first and wired after one Enter (names pick a
-subset, n skips). Re-run any time to upgrade. Flags go after `sh -s --`:
+Usage: install.sh [--yes] [--channel CHANNEL | --version VERSION] [--no-migrate-prompt]
 
-  curl -fsSL https://astridos.org/install.sh | sh -s -- --host claude --verbose
-
-  --host NAME   only this host (claude|grok|codex), repeatable — no prompt
-  --all         every host — no prompt
-  --yes, -y     wire all detected hosts without asking
-  --base-only   skip host plugins/capsules
-  --skip-init   skip base-home init
-  --no-brew     never use Homebrew
-  --bin-root D  use astrid from D
-  --verbose     show subcommand output (disables the status bar)
-  -h, --help
+  --yes                do not ask before replacing an existing installation
+  --channel CHANNEL    follow the signed stable, dev, or nightly channel
+  --version VERSION    install a specific calendar-semver release
+  --no-migrate-prompt  do not launch the optional Astrid state-import prompt
 EOF
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --host)
+    -y|--yes) ASSUME_YES=1 ;;
+    --channel)
+      [ "$#" -ge 2 ] || { echo "missing value for --channel" >&2; exit 2; }
+      AOS_CHANNEL=$2
+      channel_explicit=1
       shift
-      h="${1:-}"
-      case "$h" in
-        claude|grok|codex) REQUESTED_HOSTS="${REQUESTED_HOSTS} ${h}" ;;
-        *) die "unknown host '$h' (want claude|grok|codex)" ;;
-      esac
       ;;
-    --all) ALL_HOSTS=1 ;;
-    --base-only) BASE_ONLY=1 ;;
-    --skip-init) SKIP_INIT=1 ;;
-    --no-brew) NO_BREW=1 ;;
-    --bin-root)
+    --version)
+      [ "$#" -ge 2 ] || { echo "missing value for --version" >&2; exit 2; }
+      AOS_VERSION=$2
+      version_explicit=1
       shift
-      BIN_ROOT="${1:-}"
-      [ -n "$BIN_ROOT" ] || die "--bin-root needs a path"
       ;;
-    --verbose|-v) VERBOSE=1 ;;
-    --yes|-y) ASSUME_YES=1 ;;
-    --upgrade) ;; # accepted for compat
+    --no-migrate-prompt) SKIP_MIGRATION_PROMPT=1 ;;
     -h|--help) usage; exit 0 ;;
-    *) die "unknown argument: $1 (try --help)" ;;
+    *) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
   shift
 done
 
-if [ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ] && have gh; then
-  _tok="$(gh auth token 2>/dev/null || true)"
-  [ -n "$_tok" ] && export GH_TOKEN="$_tok"
+if [ "$channel_explicit" -eq 1 ] && [ "$version_explicit" -eq 1 ]; then
+  echo "--channel and --version are mutually exclusive" >&2
+  exit 2
+fi
+case "$AOS_CHANNEL" in
+  stable|dev|nightly) ;;
+  *) echo "invalid AOS channel: $AOS_CHANNEL" >&2; exit 2 ;;
+esac
+if [ -n "$AOS_VERSION" ] && ! printf '%s\n' "$AOS_VERSION" | grep -Eq '^(202[6-9]|20[3-9][0-9])\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+  echo "invalid AOS version: $AOS_VERSION" >&2
+  exit 2
 fi
 
-has_pair() { [ -n "$1" ] && [ -x "$1/astrid" ] && [ -x "$1/astrid-daemon" ]; }
+case "$AOS_HOME" in
+  /*) ;;
+  *) echo "AOS_HOME must be an absolute path" >&2; exit 1 ;;
+esac
+case "$AOS_BIN_DIR" in
+  /*) ;;
+  *) echo "AOS_BIN_DIR must be an absolute path" >&2; exit 1 ;;
+esac
 
-cli_version() { "$1" --version 2>/dev/null | head -n1 | awk '{ print $NF }'; }
+need() { command -v "$1" >/dev/null 2>&1 || { echo "required command not found: $1" >&2; exit 1; }; }
+need curl
+need cmp
+need tar
+need awk
+need find
+need grep
+need install
+need sort
+need sync
+need tr
+need wc
 
-platform_target() {
-  os="$(uname -s 2>/dev/null || echo unknown)"
-  arch="$(uname -m 2>/dev/null || echo unknown)"
-  case "${os}/${arch}" in
-    Darwin/arm64|Darwin/aarch64) printf 'aarch64-apple-darwin\n' ;;
-    Darwin/x86_64)               printf 'x86_64-apple-darwin\n' ;;
-    Linux/x86_64|Linux/amd64)    printf 'x86_64-unknown-linux-gnu\n' ;;
-    Linux/aarch64|Linux/arm64)   printf 'aarch64-unknown-linux-gnu\n' ;;
-    *) return 1 ;;
-  esac
+has_interactive_tty() {
+  { [ -t 1 ] || [ -t 2 ]; } && : 2>/dev/null </dev/tty && : 2>/dev/null >/dev/tty
+}
+
+prompt_from_tty() {
+  prompt=$1
+  if ! printf '%s' "$prompt" 2>/dev/null >/dev/tty; then
+    return 1
+  fi
+  if ! IFS= read -r answer 2>/dev/null </dev/tty; then
+    return 1
+  fi
 }
 
 sha256_file() {
-  if have sha256sum; then sha256sum "$1" | awk '{ print $1 }'
-  elif have shasum; then shasum -a 256 "$1" | awk '{ print $1 }'
-  else return 1
-  fi
-}
-
-# Install from GitHub Releases. Never exits: returns 1 so brew can back it up.
-install_from_github() {
-  target="$(platform_target)" || { warn "unsupported platform $(uname -s 2>/dev/null)/$(uname -m 2>/dev/null)"; return 1; }
-  have curl || { warn "curl required for GitHub releases"; return 1; }
-  tmp="$(mktemp -d 2>/dev/null || mktemp -d -t astrid-install)" || { warn "mktemp failed"; return 1; }
-  CLEAN_TMP="$tmp"
-
-  auth="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
-  if [ -n "${ASTRID_VERSION:-}" ]; then
-    tag="v${ASTRID_VERSION#v}"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
   else
-    api="https://api.github.com/repos/${ASTRID_RELEASE_REPO}/releases/latest"
-    meta="$(curl -fsSL --max-time 30 ${auth:+-H "Authorization: Bearer ${auth}"} "$api")" \
-      || { warn "could not query GitHub releases"; return 1; }
-    tag="$(printf '%s' "$meta" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
-    [ -n "$tag" ] || { warn "latest release has no tag"; return 1; }
-  fi
-  version="${tag#v}"
-  asset="astrid-${version}-${target}.tar.gz"
-  base="https://github.com/${ASTRID_RELEASE_REPO}/releases/download/${tag}"
-
-  curl -fsSL --max-time 120 -o "$tmp/$asset" "${base}/${asset}" || { warn "download failed: $asset"; return 1; }
-  curl -fsSL --max-time 30 -o "$tmp/SHA256SUMS.txt" "${base}/SHA256SUMS.txt" || { warn "release has no SHA256SUMS.txt"; return 1; }
-  expected="$(awk -v a="$asset" '$2 == a || $2 == "./"a { print $1; exit }' "$tmp/SHA256SUMS.txt")"
-  [ -n "$expected" ] || { warn "no checksum for $asset"; return 1; }
-  actual="$(sha256_file "$tmp/$asset")" || { warn "need sha256sum or shasum"; return 1; }
-  [ "$expected" = "$actual" ] || { warn "checksum mismatch for $asset"; return 1; }
-
-  mkdir -p "$ASTRID_MANAGED_BIN" || { warn "cannot create $ASTRID_MANAGED_BIN"; return 1; }
-  tar -xzf "$tmp/$asset" -C "$tmp" || { warn "extract failed"; return 1; }
-  found=""
-  for d in "$tmp"/* "$tmp"; do
-    [ -d "$d" ] || continue
-    if [ -x "$d/astrid" ] && [ -x "$d/astrid-daemon" ]; then found="$d"; break; fi
-  done
-  [ -n "$found" ] || { warn "archive missing astrid + astrid-daemon"; return 1; }
-  for b in astrid astrid-daemon astrid-build astrid-emit; do
-    if [ -x "$found/$b" ]; then
-      cp -f "$found/$b" "$ASTRID_MANAGED_BIN/$b" || { warn "cannot write $ASTRID_MANAGED_BIN/$b"; return 1; }
-      chmod 755 "$ASTRID_MANAGED_BIN/$b" 2>/dev/null || true
-    fi
-  done
-  export PATH="${ASTRID_MANAGED_BIN}:${PATH}"
-  ASTRID="$ASTRID_MANAGED_BIN/astrid"
-  export ASTRID_BIN_ROOT="$ASTRID_MANAGED_BIN"
-
-  case "$(uname -s 2>/dev/null)" in Darwin) path_rc="$HOME/.zprofile" ;; *) path_rc="$HOME/.profile" ;; esac
-  if ! grep -qsF "$ASTRID_MANAGED_BIN" "$path_rc"; then
-    printf '\n# Astrid CLI\nexport PATH="%s:$PATH"\n' "$ASTRID_MANAGED_BIN" >> "$path_rc" 2>/dev/null || true
-  fi
-  rm -rf "$tmp" 2>/dev/null || true
-  CLEAN_TMP=""
-  return 0
-}
-
-ensure_cli() {
-  spin_start "CLI"
-  if [ -n "$BIN_ROOT" ]; then
-    has_pair "$BIN_ROOT" || die "--bin-root missing astrid + astrid-daemon: $BIN_ROOT"
-    ASTRID="$BIN_ROOT/astrid"
-    export ASTRID_BIN_ROOT="$BIN_ROOT"
-    ok "CLI $(cli_version "$ASTRID") (--bin-root)"
-    return 0
-  fi
-  if [ -n "${ASTRID_BIN:-}" ]; then
-    _dir="$(dirname "$ASTRID_BIN")"
-    has_pair "$_dir" || die "ASTRID_BIN dir missing astrid + astrid-daemon: $_dir"
-    ASTRID="$ASTRID_BIN"
-    export ASTRID_BIN_ROOT="$_dir"
-    ok "CLI $(cli_version "$ASTRID") (ASTRID_BIN)"
-    return 0
-  fi
-
-  if has_pair "$ASTRID_MANAGED_BIN"; then
-    export PATH="${ASTRID_MANAGED_BIN}:${PATH}"
-    ASTRID="$ASTRID_MANAGED_BIN/astrid"
-    export ASTRID_BIN_ROOT="$ASTRID_MANAGED_BIN"
-  elif have astrid; then
-    ASTRID="$(command -v astrid)"
-  fi
-
-  if [ -n "$ASTRID" ] && [ -x "$ASTRID" ]; then
-    before="$(cli_version "$ASTRID")"
-    if q "$ASTRID" update -y; then
-      if has_pair "$ASTRID_MANAGED_BIN"; then
-        export PATH="${ASTRID_MANAGED_BIN}:${PATH}"
-        ASTRID="$ASTRID_MANAGED_BIN/astrid"
-      elif have astrid; then
-        ASTRID="$(command -v astrid)"
-      fi
-    fi
-    after="$(cli_version "$ASTRID")"
-    if [ -n "$before" ] && [ -n "$after" ] && [ "$before" != "$after" ]; then
-      ok "CLI ${after} (updated from ${before})"
-    else
-      ok "CLI ${after:-unknown} (up to date)"
-    fi
-    return 0
-  fi
-
-  if install_from_github; then
-    ok "CLI $(cli_version "$ASTRID") (installed)"
-    return 0
-  fi
-  if [ "$NO_BREW" -eq 0 ] && have brew; then
-    spin_start "CLI (brew)"
-    q brew tap "$BREW_TAP" || true
-    q brew install "${BREW_TAP}/${BREW_FORMULA}" || q brew install "$BREW_FORMULA" \
-      || die "Homebrew install failed"
-    ASTRID="$(command -v astrid)" || die "no astrid on PATH after brew"
-    ok "CLI $(cli_version "$ASTRID") (brew)"
-    return 0
-  fi
-  die "could not install Unicity Astrid OS (GitHub releases failed; brew unavailable)"
-}
-
-ensure_base() {
-  if [ "$SKIP_INIT" -eq 1 ]; then return 0; fi
-  spin_start "base home"
-  home="${ASTRID_HOME:-$HOME/.astrid}"
-  if [ -d "$home/home/default" ] || [ -f "$home/config.toml" ]; then
-    ok "base home"
-    return 0
-  fi
-  if q "$ASTRID" init -y; then
-    ok "base home (initialized)"
-  else
-    fail "base home (astrid init) — run: astrid doctor"
-  fi
-}
-
-detect_hosts() {
-  hosts=""
-  if [ "$BASE_ONLY" -eq 1 ]; then printf '%s' ""; return 0; fi
-  if [ "$ALL_HOSTS" -eq 1 ]; then printf '%s' "claude grok codex"; return 0; fi
-  if [ -n "$REQUESTED_HOSTS" ]; then printf '%s' "$REQUESTED_HOSTS"; return 0; fi
-  # A host counts only when its binary actually resolves — a stale dotdir
-  # must not pull plugins and capsules onto a machine that can't run them.
-  if have claude || [ -x "${HOME}/.claude/local/claude" ]; then hosts="${hosts} claude"; fi
-  if have grok; then hosts="${hosts} grok"; fi
-  if have codex; then hosts="${hosts} codex"; fi
-  printf '%s' "$hosts"
-}
-
-# One Enter of consent before writing into other apps' configs (rustup-style):
-# Enter wires every detected host, names pick a subset, n skips. Prompts only
-# on a real terminal in pure-detection mode; flags, -y, and CI never block.
-choose_hosts() {
-  if [ "$#" -eq 0 ]; then printf ''; return 0; fi
-  if [ "$ASSUME_YES" -eq 1 ] || [ -n "$REQUESTED_HOSTS" ] || [ "$ALL_HOSTS" -eq 1 ]; then
-    printf '%s' "$*"
-    return 0
-  fi
-  if [ "$SPIN_TTY" -eq 0 ] || [ ! -r /dev/tty ]; then printf '%s' "$*"; return 0; fi
-  labels=""
-  for h in "$@"; do labels="${labels}${labels:+, }$(pretty "$h")"; done
-  printf '? hosts detected: %s\n  Enter = wire all · names to pick (e.g. claude codex) · n = skip: ' "$labels" > /dev/tty
-  IFS= read -r ans < /dev/tty || ans=""
-  case "$ans" in
-    "") printf '%s' "$*" ;;
-    n|N|no|NO|none) printf '' ;;
-    *)
-      picked=""
-      # shellcheck disable=SC2086
-      for tok in $ans; do
-        case "$tok" in
-          claude|grok|codex) picked="${picked} ${tok}" ;;
-          *) printf '! ignoring unknown host: %s\n' "$tok" > /dev/tty ;;
-        esac
-      done
-      printf '%s' "$picked"
-      ;;
-  esac
-}
-
-distro_url() { printf '%s/%s.toml\n' "$DISTRO_BASE" "$1"; }
-
-principal_for() {
-  case "$1" in
-    claude) printf 'claude-code\n' ;;
-    grok)   printf 'grok-code\n' ;;
-    codex)  printf 'codex-code\n' ;;
-  esac
-}
-
-pretty() {
-  case "$1" in
-    claude) printf 'Claude Code\n' ;;
-    grok)   printf 'Grok Build\n' ;;
-    codex)  printf 'Codex\n' ;;
-  esac
-}
-
-# --- plugins: detect, then update-or-install (verbs verified per host) -------
-
-claude_bin() {
-  if have claude; then command -v claude
-  elif [ -x "${HOME}/.claude/local/claude" ]; then printf '%s\n' "${HOME}/.claude/local/claude"
-  else printf ''
-  fi
-}
-
-# Version of an exactly-matching installed claude plugin id ('' if absent).
-claude_plugin_version() {
-  _cbin="$1"
-  "$_cbin" plugin list 2>/dev/null | awk -v id="$2" '
-    f && /Version:/ { print $2; exit }
-    $0 ~ (id "($|[^-A-Za-z0-9_])") { f = 1 }
-  '
-}
-
-grok_plugin_installed() {
-  grok plugin list 2>/dev/null | grep -F ': astrid [' | grep -qF '(astrid-oracles)'
-}
-
-codex_plugin_version() {
-  codex plugin list 2>/dev/null | grep -F 'astrid@astrid-oracles' | grep -v 'not installed' \
-    | grep 'installed' | head -n1 \
-    | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^[0-9][0-9.]*$/) { print $i; exit } }'
-}
-
-install_plugin() {
-  host="$1"
-  label="$(pretty "$host")"
-  spin_start "$label plugin"
-  case "$host" in
-    claude)
-      cbin="$(claude_bin)"
-      if [ -z "$cbin" ]; then fail "$label plugin (no claude CLI)"; return 1; fi
-      q "$cbin" plugin marketplace add "$ORACLES_REPO" || true
-      q "$cbin" plugin marketplace update astrid-oracles || true
-      legacy="$(claude_plugin_version "$cbin" "astrid@astrid")"
-      if [ -n "$legacy" ]; then
-        q "$cbin" plugin uninstall astrid@astrid || true
-      fi
-      cur="$(claude_plugin_version "$cbin" "astrid@astrid-oracles")"
-      if [ -n "$cur" ]; then
-        q "$cbin" plugin update astrid@astrid-oracles || true
-        new="$(claude_plugin_version "$cbin" "astrid@astrid-oracles")"
-        if [ -n "$new" ] && [ "$new" != "$cur" ]; then
-          ok "$label plugin ${new} (updated from ${cur}${legacy:+; removed legacy astrid@astrid})"
-        else
-          ok "$label plugin ${cur} (up to date${legacy:+; removed legacy astrid@astrid})"
-        fi
-      else
-        if q "$cbin" plugin install astrid@astrid-oracles; then
-          new="$(claude_plugin_version "$cbin" "astrid@astrid-oracles")"
-          ok "$label plugin${new:+ ${new}} (installed${legacy:+; replaced legacy astrid@astrid})"
-        else
-          fail "$label plugin (claude plugin install astrid@astrid-oracles)"
-          return 1
-        fi
-      fi
-      ;;
-    grok)
-      if ! have grok; then fail "$label plugin (no grok CLI)"; return 1; fi
-      q grok plugin marketplace add "$ORACLES_REPO" || true
-      q grok plugin marketplace update || true
-      if grok_plugin_installed; then
-        gout="$(grok plugin update astrid </dev/null 2>&1)" || true
-        if [ "$VERBOSE" -eq 1 ]; then say "$gout"; fi
-        vers="$(printf '%s' "$gout" | sed -n 's/.*(\([^ ]*\) -> \([^)]*\)).*/\1 \2/p' | head -n1)"
-        vfrom="${vers%% *}"
-        vto="${vers##* }"
-        if [ -n "$vers" ] && [ "$vfrom" != "$vto" ]; then
-          ok "$label plugin ${vto} (updated from ${vfrom})"
-        else
-          ok "$label plugin${vto:+ ${vto}} (up to date)"
-        fi
-      else
-        # grok pins marketplace plugins by repo shorthand: astrid@owner/repo
-        if q grok plugin install "astrid@${ORACLES_REPO}" --trust; then
-          ok "$label plugin (installed)"
-        else
-          fail "$label plugin (grok plugin install astrid@${ORACLES_REPO})"
-          return 1
-        fi
-      fi
-      ;;
-    codex)
-      if ! have codex; then fail "$label plugin (no codex CLI)"; return 1; fi
-      q codex plugin marketplace add "$ORACLES_REPO" || true
-      q codex plugin marketplace upgrade astrid-oracles || true
-      cur="$(codex_plugin_version)"
-      # `codex plugin add` is idempotent and doubles as the upgrade path.
-      if q codex plugin add astrid@astrid-oracles; then
-        new="$(codex_plugin_version)"
-        if [ -n "$cur" ] && [ -n "$new" ] && [ "$new" != "$cur" ]; then
-          ok "$label plugin ${new} (updated from ${cur})"
-        elif [ -n "$cur" ]; then
-          ok "$label plugin ${cur} (up to date)"
-        else
-          ok "$label plugin${new:+ ${new}} (installed)"
-        fi
-      else
-        if [ -n "$cur" ]; then
-          ok "$label plugin ${cur} (kept)"
-        else
-          fail "$label plugin (codex plugin add astrid@astrid-oracles)"
-          return 1
-        fi
-      fi
-      ;;
-  esac
-}
-
-principal_has_lock() {
-  _home="${ASTRID_HOME:-$HOME/.astrid}"
-  [ -f "$_home/home/$1/.config/distro.lock" ] || [ -f "$_home/home/$1/.config/Distro.lock" ]
-}
-
-install_capsules() {
-  host="$1"
-  p="$(principal_for "$host")"
-  d="$(distro_url "$host")"
-  label="$(pretty "$host")"
-  spin_start "$label capsules"
-  # Seed default once if empty (daemon uplink); init is a no-op when lock fresh.
-  if ! principal_has_lock default; then
-    q "$ASTRID" init --distro "$d" -y || true
-  fi
-
-  had_lock=0
-  if principal_has_lock "$p"; then had_lock=1; fi
-  iout="$("$ASTRID" init --distro "$d" --principal "$p" -y </dev/null 2>&1)" && rc=0 || rc=$?
-  if [ "$VERBOSE" -eq 1 ]; then say "$iout"; fi
-  if [ "$rc" -eq 0 ]; then
-    if [ "$had_lock" -eq 1 ]; then
-      ok "$label capsules (up to date · $p)"
-    else
-      ok "$label capsules (installed · $p)"
-    fi
-  else
-    if principal_has_lock "$p"; then
-      ok "$label capsules (kept · $p)"
-    else
-      fail "$label capsules ($p) — need GH_TOKEN? re-run with --verbose"
-    fi
-  fi
-}
-
-main() {
-  ensure_cli
-  ensure_base
-
-  hosts="$(detect_hosts)"
-  # shellcheck disable=SC2086
-  set -- $hosts
-
-  if [ "$#" -eq 0 ]; then
-    ok "hosts (none detected — base only)"
-  else
-    chosen="$(choose_hosts "$@")"
-    # shellcheck disable=SC2086
-    set -- $chosen
-    if [ "$#" -eq 0 ]; then
-      ok "hosts (skipped — base only)"
-    else
-      for h in "$@"; do
-        install_plugin "$h" || true
-        install_capsules "$h"
-      done
-    fi
-  fi
-
-  if [ "$FAILED" -gt 0 ]; then
-    say "— ${FAILED} step(s) failed · retry loudly: curl -fsSL https://astridos.org/install.sh | sh -s -- --verbose"
+    echo "required command not found: sha256sum or shasum" >&2
     exit 1
   fi
 }
 
-main
+utc_before() {
+  awk -v left="$1" -v right="$2" 'BEGIN { exit left < right ? 0 : 1 }'
+}
+
+utc_before_or_equal() {
+  awk -v left="$1" -v right="$2" 'BEGIN { exit left <= right ? 0 : 1 }'
+}
+
+utc_epoch() {
+  value=$1
+  date -u -d "$value" '+%s' 2>/dev/null ||
+    date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$value" '+%s' 2>/dev/null
+}
+
+toml_value() {
+  metadata=$1
+  wanted_section=$2
+  wanted_key=$3
+  awk -v wanted_section="$wanted_section" -v wanted_key="$wanted_key" '
+    /^\[/ { section = $0; next }
+    section == wanted_section && $1 == wanted_key && $2 == "=" {
+      value = substr($0, index($0, "=") + 1)
+      sub(/^[[:space:]]+/, "", value)
+      if (value ~ /^"/) {
+        sub(/^"/, "", value)
+        sub(/"$/, "", value)
+      }
+      print value
+      exit
+    }
+  ' "$metadata"
+}
+
+toml_raw_value() {
+  metadata=$1
+  wanted_section=$2
+  wanted_key=$3
+  awk -v wanted_section="$wanted_section" -v wanted_key="$wanted_key" '
+    /^\[/ { section = $0; next }
+    section == wanted_section && $1 == wanted_key && $2 == "=" {
+      value = substr($0, index($0, "=") + 1)
+      sub(/^[[:space:]]+/, "", value)
+      print value
+      exit
+    }
+  ' "$metadata"
+}
+
+require_toml_string() {
+  raw=$(toml_raw_value "$1" "$2" "$3")
+  printf '%s\n' "$raw" | grep -Eq '^"[^"\\]*"$'
+}
+
+require_toml_integer() {
+  raw=$(toml_raw_value "$1" "$2" "$3")
+  printf '%s\n' "$raw" | grep -Eq "$4"
+}
+
+require_toml_boolean() {
+  raw=$(toml_raw_value "$1" "$2" "$3")
+  [ "$raw" = true ] || [ "$raw" = false ]
+}
+
+validate_channel_metadata() {
+  metadata=$1
+  expected_channel=$2
+  check_expiry=${3:-1}
+  awk '
+    function mark(name) { if (seen[name]++) bad = 1 }
+    /^$/ { next }
+    /^\[/ {
+      section = $0
+      if (section == "[release]") mark(section)
+      else if (section ~ /^\[targets\.(aarch64-apple-darwin|x86_64-apple-darwin|aarch64-unknown-linux-gnu|x86_64-unknown-linux-gnu)\]$/) mark(section)
+      else bad = 1
+      next
+    }
+    {
+      key = $1
+      if ($2 != "=") { bad = 1; next }
+      if (section == "") {
+        if (key !~ /^(schema-version|kind|product|channel|generation|published-at|expires-at)$/) bad = 1
+      } else if (section == "[release]") {
+        if (key !~ /^(repository|version|tag|source-commit|metadata-asset|metadata-sha256|release-workflow-identity)$/) bad = 1
+      } else if (section ~ /^\[targets\./) {
+        if (key !~ /^(asset|sha256|blake3|sigstore-bundle|size)$/) bad = 1
+      } else bad = 1
+      mark(section SUBSEP key)
+    }
+    END {
+      required_top = "schema-version kind product channel generation published-at expires-at"
+      split(required_top, top)
+      for (i in top) if (seen[SUBSEP top[i]] != 1) bad = 1
+      required_release = "repository version tag source-commit metadata-asset metadata-sha256 release-workflow-identity"
+      split(required_release, release)
+      for (i in release) if (seen["[release]" SUBSEP release[i]] != 1) bad = 1
+      targets[1] = "aarch64-apple-darwin"
+      targets[2] = "x86_64-apple-darwin"
+      targets[3] = "aarch64-unknown-linux-gnu"
+      targets[4] = "x86_64-unknown-linux-gnu"
+      required_target = "asset sha256 blake3 sigstore-bundle size"
+      split(required_target, target_keys)
+      for (t in targets) {
+        target_section = "[targets." targets[t] "]"
+        if (seen[target_section] != 1) bad = 1
+        for (i in target_keys) if (seen[target_section SUBSEP target_keys[i]] != 1) bad = 1
+      }
+      exit bad ? 1 : 0
+    }
+  ' "$metadata" || { echo "signed channel metadata does not match schema 1" >&2; return 1; }
+
+  require_toml_integer "$metadata" "" schema-version '^1$' || return 1
+  for key in kind product channel published-at expires-at; do
+    require_toml_string "$metadata" "" "$key" || return 1
+  done
+  require_toml_integer "$metadata" "" generation '^[1-9][0-9]{0,17}$' || return 1
+  for key in repository version tag source-commit metadata-asset metadata-sha256 release-workflow-identity; do
+    require_toml_string "$metadata" "[release]" "$key" || return 1
+  done
+  for lexical_target in aarch64-apple-darwin x86_64-apple-darwin aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu; do
+    lexical_section="[targets.${lexical_target}]"
+    for key in asset sha256 blake3 sigstore-bundle; do
+      require_toml_string "$metadata" "$lexical_section" "$key" || return 1
+    done
+    require_toml_integer "$metadata" "$lexical_section" size '^[1-9][0-9]*$' || return 1
+  done
+
+  [ "$(toml_value "$metadata" "" schema-version)" = 1 ] || return 1
+  [ "$(toml_value "$metadata" "" kind)" = aos-channel ] || return 1
+  [ "$(toml_value "$metadata" "" product)" = unicity-aos-ce ] || return 1
+  [ "$(toml_value "$metadata" "" channel)" = "$expected_channel" ] || {
+    echo "signed channel metadata names a different channel" >&2
+    return 1
+  }
+  generation=$(toml_value "$metadata" "" generation)
+  published_at=$(toml_value "$metadata" "" published-at)
+  expires_at=$(toml_value "$metadata" "" expires-at)
+  # Keep generations inside the signed 64-bit range used by POSIX test(1).
+  printf '%s\n' "$generation" | grep -Eq '^[1-9][0-9]{0,17}$' || return 1
+  printf '%s\n' "$published_at" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' || return 1
+  printf '%s\n' "$expires_at" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' || return 1
+  utc_before "$published_at" "$expires_at" || { echo "signed channel metadata has an invalid lifetime" >&2; return 1; }
+  published_epoch=$(utc_epoch "$published_at") || { echo "signed channel published-at is invalid" >&2; return 1; }
+  expires_epoch=$(utc_epoch "$expires_at") || { echo "signed channel expires-at is invalid" >&2; return 1; }
+  case "$expected_channel" in
+    stable) max_lifetime_seconds=2592000 ;;
+    dev) max_lifetime_seconds=604800 ;;
+    nightly) max_lifetime_seconds=172800 ;;
+    *) return 1 ;;
+  esac
+  [ $((expires_epoch - published_epoch)) -le "$max_lifetime_seconds" ] || {
+    echo "signed channel lifetime exceeds the maximum for $expected_channel" >&2
+    return 1
+  }
+  if [ "$check_expiry" -eq 1 ]; then
+    now=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+    now_epoch=$(date -u '+%s')
+    utc_before_or_equal "$now" "$expires_at" || {
+      echo "signed channel metadata has expired" >&2
+      return 1
+    }
+    [ "$published_epoch" -le $((now_epoch + 300)) ] || {
+      echo "signed channel published-at is unreasonably far in the future" >&2
+      return 1
+    }
+  fi
+
+  release_repository=$(toml_value "$metadata" "[release]" repository)
+  release_version=$(toml_value "$metadata" "[release]" version)
+  release_tag_value=$(toml_value "$metadata" "[release]" tag)
+  release_source_commit=$(toml_value "$metadata" "[release]" source-commit)
+  release_metadata_asset_value=$(toml_value "$metadata" "[release]" metadata-asset)
+  release_metadata_sha_value=$(toml_value "$metadata" "[release]" metadata-sha256)
+  release_workflow_identity=$(toml_value "$metadata" "[release]" release-workflow-identity)
+  [ "$release_repository" = "$AOS_TRUSTED_RELEASE_REPO" ] || return 1
+  printf '%s\n' "$release_version" | grep -Eq '^(202[6-9]|20[3-9][0-9])\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' || return 1
+  [ "$release_tag_value" = "$release_version" ] || return 1
+  printf '%s\n' "$release_source_commit" | grep -Eq '^[0-9a-f]{40}$' || return 1
+  [ "$release_metadata_asset_value" = "unicity-aos-${release_version}-release.toml" ] || return 1
+  printf '%s\n' "$release_metadata_sha_value" | grep -Eq '^[0-9a-f]{64}$' || return 1
+  [ "$release_workflow_identity" = "https://github.com/${AOS_TRUSTED_RELEASE_REPO}/.github/workflows/release.yml@refs/tags/${release_version}" ] || return 1
+  for metadata_target in aarch64-apple-darwin x86_64-apple-darwin aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu; do
+    metadata_section="[targets.${metadata_target}]"
+    metadata_target_asset=$(toml_value "$metadata" "$metadata_section" asset)
+    metadata_target_sha=$(toml_value "$metadata" "$metadata_section" sha256)
+    metadata_target_blake3=$(toml_value "$metadata" "$metadata_section" blake3)
+    metadata_target_bundle=$(toml_value "$metadata" "$metadata_section" sigstore-bundle)
+    metadata_target_size=$(toml_value "$metadata" "$metadata_section" size)
+    [ "$metadata_target_asset" = "unicity-aos-${release_version}-${metadata_target}.tar.gz" ] || return 1
+    [ "$metadata_target_bundle" = "${metadata_target_asset}.sigstore.json" ] || return 1
+    printf '%s\n' "$metadata_target_sha" | grep -Eq '^[0-9a-f]{64}$' || return 1
+    printf '%s\n' "$metadata_target_blake3" | grep -Eq '^[0-9a-f]{64}$' || return 1
+    printf '%s\n' "$metadata_target_size" | grep -Eq '^[1-9][0-9]*$' || return 1
+  done
+}
+
+validate_release_metadata() {
+  metadata=$1
+  expected_version=$2
+  expected_identity=$3
+  awk '
+    function mark(name) { if (seen[name]++) bad = 1 }
+    /^$/ { next }
+    /^\[/ {
+      section = $0
+      if (section ~ /^\[(runtime|contracts|gates)\]$/) mark(section)
+      else if (section ~ /^\[targets\.(aarch64-apple-darwin|x86_64-apple-darwin|aarch64-unknown-linux-gnu|x86_64-unknown-linux-gnu)\]$/) mark(section)
+      else bad = 1
+      next
+    }
+    {
+      key = $1
+      if ($2 != "=") { bad = 1; next }
+      if (section == "") {
+        if (key !~ /^(schema-version|kind|product|version|tag|source-commit|published-at|release-workflow-identity)$/) bad = 1
+      } else if (section == "[runtime]") {
+        if (key !~ /^(repository|version|tag|release-workflow-identity|release-metadata-available|source-commit|release-metadata-asset|release-metadata-blake3)$/) bad = 1
+      } else if (section == "[contracts]") {
+        if (key !~ /^(repository|commit|sdk-rust-version|sdk-rust-commit)$/) bad = 1
+      } else if (section == "[gates]") {
+        if (key !~ /^(release-ready|upgrade-self-heal-ready)$/) bad = 1
+      } else if (section ~ /^\[targets\./) {
+        if (key !~ /^(asset|sha256|blake3|sigstore-bundle|size)$/) bad = 1
+      } else bad = 1
+      mark(section SUBSEP key)
+    }
+    END {
+      required_top = "schema-version kind product version tag source-commit published-at release-workflow-identity"
+      split(required_top, top)
+      for (i in top) if (seen[SUBSEP top[i]] != 1) bad = 1
+      tables[1] = "[runtime]|repository version tag release-workflow-identity release-metadata-available source-commit release-metadata-asset release-metadata-blake3"
+      tables[2] = "[contracts]|repository commit sdk-rust-version sdk-rust-commit"
+      tables[3] = "[gates]|release-ready upgrade-self-heal-ready"
+      for (t in tables) {
+        split(tables[t], parts, "|")
+        if (seen[parts[1]] != 1) bad = 1
+        split(parts[2], keys)
+        for (i in keys) if (seen[parts[1] SUBSEP keys[i]] != 1) bad = 1
+      }
+      targets[1] = "aarch64-apple-darwin"
+      targets[2] = "x86_64-apple-darwin"
+      targets[3] = "aarch64-unknown-linux-gnu"
+      targets[4] = "x86_64-unknown-linux-gnu"
+      split("asset sha256 blake3 sigstore-bundle size", target_keys)
+      for (t in targets) {
+        target_section = "[targets." targets[t] "]"
+        if (seen[target_section] != 1) bad = 1
+        for (i in target_keys) if (seen[target_section SUBSEP target_keys[i]] != 1) bad = 1
+      }
+      exit bad ? 1 : 0
+    }
+  ' "$metadata" || { echo "signed release metadata does not match schema 1" >&2; return 1; }
+  require_toml_integer "$metadata" "" schema-version '^1$' || return 1
+  for key in kind product version tag source-commit published-at release-workflow-identity; do
+    require_toml_string "$metadata" "" "$key" || return 1
+  done
+  for key in repository version tag release-workflow-identity source-commit release-metadata-asset release-metadata-blake3; do
+    require_toml_string "$metadata" "[runtime]" "$key" || return 1
+  done
+  require_toml_boolean "$metadata" "[runtime]" release-metadata-available || return 1
+  for key in repository commit sdk-rust-version sdk-rust-commit; do
+    require_toml_string "$metadata" "[contracts]" "$key" || return 1
+  done
+  require_toml_boolean "$metadata" "[gates]" release-ready || return 1
+  require_toml_boolean "$metadata" "[gates]" upgrade-self-heal-ready || return 1
+  for lexical_target in aarch64-apple-darwin x86_64-apple-darwin aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu; do
+    lexical_section="[targets.${lexical_target}]"
+    for key in asset sha256 blake3 sigstore-bundle; do
+      require_toml_string "$metadata" "$lexical_section" "$key" || return 1
+    done
+    require_toml_integer "$metadata" "$lexical_section" size '^[1-9][0-9]*$' || return 1
+  done
+  [ "$(toml_value "$metadata" "" schema-version)" = 1 ] || return 1
+  [ "$(toml_value "$metadata" "" kind)" = aos-release ] || return 1
+  [ "$(toml_value "$metadata" "" product)" = unicity-aos-ce ] || return 1
+  [ "$(toml_value "$metadata" "" version)" = "$expected_version" ] || return 1
+  [ "$(toml_value "$metadata" "" tag)" = "$expected_version" ] || return 1
+  [ "$(toml_value "$metadata" "" release-workflow-identity)" = "$expected_identity" ] || {
+    echo "signed release metadata does not name the exact tag workflow identity" >&2
+    return 1
+  }
+  printf '%s\n' "$(toml_value "$metadata" "" source-commit)" | grep -Eq '^[0-9a-f]{40}$' || return 1
+  printf '%s\n' "$(toml_value "$metadata" "" published-at)" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' || return 1
+
+  runtime_repository=$(toml_value "$metadata" "[runtime]" repository)
+  runtime_version=$(toml_value "$metadata" "[runtime]" version)
+  runtime_tag=$(toml_value "$metadata" "[runtime]" tag)
+  runtime_identity=$(toml_value "$metadata" "[runtime]" release-workflow-identity)
+  runtime_metadata_available=$(toml_value "$metadata" "[runtime]" release-metadata-available)
+  runtime_source_commit=$(toml_value "$metadata" "[runtime]" source-commit)
+  runtime_metadata_asset=$(toml_value "$metadata" "[runtime]" release-metadata-asset)
+  runtime_metadata_blake3=$(toml_value "$metadata" "[runtime]" release-metadata-blake3)
+  [ "$runtime_repository" = astrid-runtime/astrid ] || return 1
+  printf '%s\n' "$runtime_version" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' || return 1
+  [ "$runtime_tag" = "v${runtime_version}" ] || return 1
+  case "$runtime_identity" in
+    "https://github.com/astrid-runtime/astrid/.github/workflows/release.yml@refs/tags/v${runtime_version}"|\
+    "https://github.com/unicity-astrid/astrid/.github/workflows/release.yml@refs/tags/v${runtime_version}") ;;
+    *) return 1 ;;
+  esac
+  if [ "$runtime_metadata_available" = true ]; then
+    [ "$runtime_identity" = "https://github.com/astrid-runtime/astrid/.github/workflows/release.yml@refs/tags/v${runtime_version}" ] || return 1
+    printf '%s\n' "$runtime_source_commit" | grep -Eq '^[0-9a-f]{40}$' || return 1
+    [ "$runtime_metadata_asset" = "astrid-${runtime_version}-release.toml" ] || return 1
+    printf '%s\n' "$runtime_metadata_blake3" | grep -Eq '^[0-9a-f]{64}$' || return 1
+  else
+    [ -z "$runtime_source_commit" ] && [ -z "$runtime_metadata_asset" ] && [ -z "$runtime_metadata_blake3" ] || return 1
+  fi
+
+  [ "$(toml_value "$metadata" "[contracts]" repository)" = astrid-runtime/wit ] || return 1
+  printf '%s\n' "$(toml_value "$metadata" "[contracts]" commit)" | grep -Eq '^[0-9a-f]{40}$' || return 1
+  printf '%s\n' "$(toml_value "$metadata" "[contracts]" sdk-rust-version)" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' || return 1
+  printf '%s\n' "$(toml_value "$metadata" "[contracts]" sdk-rust-commit)" | grep -Eq '^[0-9a-f]{40}$' || return 1
+  for metadata_target in aarch64-apple-darwin x86_64-apple-darwin aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu; do
+    metadata_section="[targets.${metadata_target}]"
+    metadata_target_asset=$(toml_value "$metadata" "$metadata_section" asset)
+    metadata_target_sha=$(toml_value "$metadata" "$metadata_section" sha256)
+    metadata_target_blake3=$(toml_value "$metadata" "$metadata_section" blake3)
+    metadata_target_bundle=$(toml_value "$metadata" "$metadata_section" sigstore-bundle)
+    metadata_target_size=$(toml_value "$metadata" "$metadata_section" size)
+    [ "$metadata_target_asset" = "unicity-aos-${expected_version}-${metadata_target}.tar.gz" ] || return 1
+    [ "$metadata_target_bundle" = "${metadata_target_asset}.sigstore.json" ] || return 1
+    printf '%s\n' "$metadata_target_sha" | grep -Eq '^[0-9a-f]{64}$' || return 1
+    printf '%s\n' "$metadata_target_blake3" | grep -Eq '^[0-9a-f]{64}$' || return 1
+    printf '%s\n' "$metadata_target_size" | grep -Eq '^[1-9][0-9]*$' || return 1
+  done
+}
+
+validate_accepted_channel() {
+  [ -n "$channel_root" ] || return 0
+  for state_parent in "$AOS_HOME" "$AOS_HOME/update" "$AOS_HOME/update/channels" "$channel_root" "$channel_root/generations"; do
+    [ ! -L "$state_parent" ] || { echo "refusing symlinked channel state path: $state_parent" >&2; return 1; }
+  done
+  if [ ! -e "$channel_current_path" ]; then
+    return 0
+  fi
+  [ -f "$channel_current_path" ] && [ ! -L "$channel_current_path" ] || {
+    echo "accepted channel pointer is not a regular file" >&2
+    return 1
+  }
+  [ "$(wc -l < "$channel_current_path" | tr -d ' ')" = 1 ] || {
+    echo "accepted channel pointer is malformed" >&2
+    return 1
+  }
+  accepted_generation=
+  IFS= read -r accepted_generation < "$channel_current_path"
+  printf '%s\n' "$accepted_generation" | grep -Eq '^[1-9][0-9]{0,17}$' || {
+    echo "accepted channel pointer is malformed" >&2
+    return 1
+  }
+  accepted_dir="$channel_root/generations/$accepted_generation"
+  [ -d "$accepted_dir" ] && [ ! -L "$accepted_dir" ] || {
+    echo "accepted channel generation is incomplete" >&2
+    return 1
+  }
+  accepted_metadata="$accepted_dir/channel.toml"
+  accepted_bundle="$accepted_dir/channel.toml.sigstore.json"
+  [ -f "$accepted_metadata" ] && [ ! -L "$accepted_metadata" ] && \
+    [ -f "$accepted_bundle" ] && [ ! -L "$accepted_bundle" ] || {
+    echo "accepted channel generation is incomplete" >&2
+    return 1
+  }
+  "$COSIGN_BIN" verify-blob \
+    --bundle "$accepted_bundle" \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    --certificate-identity "$channel_identity" \
+    --use-signed-timestamps \
+    "$accepted_metadata" >/dev/null
+  validate_channel_metadata "$accepted_metadata" "$AOS_CHANNEL" 0
+  [ "$(toml_value "$accepted_metadata" "" generation)" = "$accepted_generation" ] || {
+    echo "accepted channel pointer does not match its signed generation" >&2
+    return 1
+  }
+  if [ "$channel_generation" -lt "$accepted_generation" ]; then
+    echo "signed channel generation $channel_generation is older than accepted generation $accepted_generation" >&2
+    return 1
+  fi
+  if [ "$channel_generation" -eq "$accepted_generation" ] && ! cmp -s "$work/channel.toml" "$accepted_metadata"; then
+    echo "signed channel generation $channel_generation conflicts with the accepted metadata" >&2
+    return 1
+  fi
+}
+
+os=$(uname -s)
+arch=$(uname -m)
+case "$os:$arch" in
+  Darwin:arm64|Darwin:aarch64)
+    target=aarch64-apple-darwin
+    cosign_asset=cosign-darwin-arm64
+    cosign_sha256=94b42a9e697be95675f6160ab031a9a5f1ec1e646d6f648d7b2f5cd59ececbc5
+    ;;
+  Darwin:x86_64)
+    target=x86_64-apple-darwin
+    cosign_asset=cosign-darwin-amd64
+    cosign_sha256=14d2678dfbfde18798151e86fbd91ebdadbb7424b18412a42a155dd8a2df4c7a
+    ;;
+  Linux:aarch64|Linux:arm64)
+    target=aarch64-unknown-linux-gnu
+    cosign_asset=cosign-linux-arm64
+    cosign_sha256=2ec865872e331c32fd12b08dae15332d3f92c0aa029219589684a4903ca85d11
+    ;;
+  Linux:x86_64|Linux:amd64)
+    target=x86_64-unknown-linux-gnu
+    cosign_asset=cosign-linux-amd64
+    cosign_sha256=ae1ecd212663f3693ad9edf8b1a183900c9a52d3155ba6e354237f9a0f6463fc
+    ;;
+  *) echo "Unicity AOS does not publish a bundle for $os/$arch yet" >&2; exit 1 ;;
+esac
+
+work=$(mktemp -d "${TMPDIR:-/tmp}/unicity-aos-install.XXXXXX")
+
+release_install_lock() {
+  if [ "$install_lock_acquired" -ne 1 ]; then
+    return
+  fi
+  owner=
+  if [ -f "$install_lock/pid" ] && IFS= read -r owner < "$install_lock/pid" && [ "$owner" = "$$" ]; then
+    rm -rf "$install_lock"
+  fi
+  install_lock_acquired=0
+}
+
+acquire_install_lock() {
+  for lock_parent in "$AOS_HOME" "$AOS_HOME/update"; do
+    [ ! -L "$lock_parent" ] || { echo "refusing symlinked install lock path: $lock_parent" >&2; return 1; }
+  done
+  mkdir -p "$AOS_HOME/update"
+  chmod 700 "$AOS_HOME" "$AOS_HOME/update"
+  install_lock="$AOS_HOME/update/install.lock"
+  [ ! -L "$install_lock" ] || { echo "refusing symlinked install lock" >&2; return 1; }
+  if ! mkdir "$install_lock" 2>/dev/null; then
+    owner=
+    if [ -f "$install_lock/pid" ] && [ ! -L "$install_lock/pid" ] && \
+      IFS= read -r owner < "$install_lock/pid" && \
+      printf '%s\n' "$owner" | grep -Eq '^[1-9][0-9]*$' && \
+      ! kill -0 "$owner" 2>/dev/null; then
+      stale_lock="${install_lock}.stale.$$"
+      if ! mv "$install_lock" "$stale_lock" 2>/dev/null; then
+        echo "another AOS installation owns the install lock" >&2
+        return 1
+      fi
+      rm -rf "$stale_lock"
+      mkdir "$install_lock"
+    else
+      echo "another AOS installation owns the install lock" >&2
+      return 1
+    fi
+  fi
+  printf '%s\n' "$$" > "$install_lock/pid"
+  chmod 600 "$install_lock/pid"
+  install_lock_acquired=1
+}
+
+cleanup() {
+  status=$?
+  trap - EXIT HUP INT TERM
+  if [ "$installation_started" -eq 1 ]; then
+    restore || status=1
+  elif [ "$release_committed" -eq 1 ] && [ -n "$release_backup" ]; then
+    rm -rf "$release_backup" || status=1
+  fi
+  release_install_lock || status=1
+  rm -rf "$work"
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+COSIGN_BIN="$work/cosign"
+echo "Downloading the pinned Sigstore verifier..."
+curl --proto '=https' --tlsv1.2 -fsSL \
+  "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/${cosign_asset}" \
+  -o "$COSIGN_BIN"
+[ ! -L "$COSIGN_BIN" ] || { echo "downloaded Sigstore verifier is a symlink" >&2; exit 1; }
+[ "$(sha256_file "$COSIGN_BIN")" = "$cosign_sha256" ] || {
+  echo "Sigstore verifier checksum mismatch" >&2
+  exit 1
+}
+chmod 700 "$COSIGN_BIN"
+
+if [ -z "$AOS_VERSION" ]; then
+  channel_base="${AOS_CHANNEL_BASE_URL}/channel-${AOS_CHANNEL}"
+  echo "Resolving the signed $AOS_CHANNEL channel..."
+  curl --proto '=https' --tlsv1.2 -fsSL "$channel_base/channel.toml" -o "$work/channel.toml"
+  curl --proto '=https' --tlsv1.2 -fsSL "$channel_base/channel.toml.sigstore.json" -o "$work/channel.toml.sigstore.json"
+  channel_identity="https://github.com/${AOS_TRUSTED_RELEASE_REPO}/.github/workflows/promote-channel.yml@refs/heads/main"
+  "$COSIGN_BIN" verify-blob \
+    --bundle "$work/channel.toml.sigstore.json" \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    --certificate-identity "$channel_identity" \
+    --use-signed-timestamps \
+    "$work/channel.toml" >/dev/null
+  validate_channel_metadata "$work/channel.toml" "$AOS_CHANNEL"
+  AOS_VERSION=$(toml_value "$work/channel.toml" "[release]" version)
+  release_tag=$(toml_value "$work/channel.toml" "[release]" tag)
+  release_metadata_asset=$(toml_value "$work/channel.toml" "[release]" metadata-asset)
+  release_metadata_sha256=$(toml_value "$work/channel.toml" "[release]" metadata-sha256)
+  channel_generation=$(toml_value "$work/channel.toml" "" generation)
+
+  channel_root="$AOS_HOME/update/channels/$AOS_CHANNEL"
+  channel_current_path="$channel_root/current"
+  channel_generation_dir="$channel_root/generations/$channel_generation"
+else
+  release_tag=$AOS_VERSION
+  release_metadata_asset="unicity-aos-${AOS_VERSION}-release.toml"
+  release_metadata_sha256=
+fi
+
+release_identity="https://github.com/${AOS_TRUSTED_RELEASE_REPO}/.github/workflows/release.yml@refs/tags/${release_tag}"
+release_base="https://github.com/${AOS_RELEASE_REPO}/releases/download/${release_tag}"
+curl --proto '=https' --tlsv1.2 -fsSL "$release_base/$release_metadata_asset" -o "$work/$release_metadata_asset"
+curl --proto '=https' --tlsv1.2 -fsSL "$release_base/$release_metadata_asset.sigstore.json" -o "$work/$release_metadata_asset.sigstore.json"
+"$COSIGN_BIN" verify-blob \
+  --bundle "$work/$release_metadata_asset.sigstore.json" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity "$release_identity" \
+  --use-signed-timestamps \
+  "$work/$release_metadata_asset" >/dev/null
+if [ -n "$release_metadata_sha256" ] && [ "$(sha256_file "$work/$release_metadata_asset")" != "$release_metadata_sha256" ]; then
+  echo "signed release metadata does not match the channel digest" >&2
+  exit 1
+fi
+validate_release_metadata "$work/$release_metadata_asset" "$AOS_VERSION" "$release_identity"
+
+target_section="[targets.${target}]"
+asset=$(toml_value "$work/$release_metadata_asset" "$target_section" asset)
+asset_sha256=$(toml_value "$work/$release_metadata_asset" "$target_section" sha256)
+asset_blake3=$(toml_value "$work/$release_metadata_asset" "$target_section" blake3)
+asset_bundle=$(toml_value "$work/$release_metadata_asset" "$target_section" sigstore-bundle)
+expected_asset="unicity-aos-${AOS_VERSION}-${target}.tar.gz"
+[ "$asset" = "$expected_asset" ] || { echo "release metadata selected a non-canonical target asset" >&2; exit 1; }
+[ "$asset_bundle" = "$asset.sigstore.json" ] || { echo "release metadata selected a non-canonical signature bundle" >&2; exit 1; }
+printf '%s\n' "$asset_sha256" | grep -Eq '^[0-9a-f]{64}$' || {
+  echo "release metadata contains a malformed target SHA-256 digest" >&2
+  exit 1
+}
+printf '%s\n' "$asset_blake3" | grep -Eq '^[0-9a-f]{64}$' || {
+  echo "release metadata contains a malformed target digest" >&2
+  exit 1
+}
+if [ -f "$work/channel.toml" ]; then
+  [ "$(toml_value "$work/$release_metadata_asset" "[gates]" release-ready)" = true ] || {
+    echo "signed channel points to release metadata whose release-ready gate is false" >&2
+    exit 1
+  }
+  [ "$(toml_value "$work/$release_metadata_asset" "[gates]" upgrade-self-heal-ready)" = true ] || {
+    echo "signed channel points to release metadata whose upgrade-self-heal-ready gate is false" >&2
+    exit 1
+  }
+  [ "$(toml_value "$work/channel.toml" "[release]" source-commit)" = "$(toml_value "$work/$release_metadata_asset" "" source-commit)" ] || {
+    echo "signed channel source commit does not match immutable release metadata" >&2
+    exit 1
+  }
+  for key in asset sha256 blake3 sigstore-bundle size; do
+    [ "$(toml_value "$work/channel.toml" "$target_section" "$key")" = "$(toml_value "$work/$release_metadata_asset" "$target_section" "$key")" ] || {
+      echo "signed channel target does not match immutable release metadata: $key" >&2
+      exit 1
+    }
+  done
+fi
+
+echo "Downloading Unicity AOS $AOS_VERSION for $target..."
+curl --proto '=https' --tlsv1.2 -fsSL "$release_base/$asset" -o "$work/$asset"
+curl --proto '=https' --tlsv1.2 -fsSL "$release_base/$asset_bundle" -o "$work/$asset_bundle"
+[ "$(sha256_file "$work/$asset")" = "$asset_sha256" ] || {
+  echo "Unicity AOS archive checksum mismatch" >&2
+  exit 1
+}
+"$COSIGN_BIN" verify-blob \
+  --bundle "$work/$asset_bundle" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity "$release_identity" \
+  --use-signed-timestamps \
+  "$work/$asset" >/dev/null
+
+mkdir "$work/unpack"
+if tar -tzf "$work/$asset" | awk -v target="$target" -v version="$AOS_VERSION" '
+  {
+    root = $0
+    sub(/\/.*/, "", root)
+    if (first == "") first = root
+    if (root != first) unsafe = 1
+    if (root != "unicity-aos-" version "-" target) {
+      unsafe = 1
+    }
+  }
+  /^\// || /(^|\/)\.\.($|\/)/ { unsafe = 1 }
+  END { exit unsafe ? 0 : 1 }
+'; then
+  echo "release archive contains an unsafe path or unexpected bundle root" >&2
+  exit 1
+fi
+if tar -tvzf "$work/$asset" | awk '
+  substr($1, 1, 1) != "-" && substr($1, 1, 1) != "d" { unsafe = 1 }
+  END { exit unsafe ? 0 : 1 }
+'; then
+  echo "release archive contains a link or special file" >&2
+  exit 1
+fi
+tar -xzf "$work/$asset" -C "$work/unpack"
+bundle_name=$(tar -tzf "$work/$asset" | awk 'NR == 1 { sub(/\/.*/, "", $0); print; exit }')
+[ -n "$bundle_name" ] || { echo "release archive has no Unicity AOS bundle" >&2; exit 1; }
+bundle="$work/unpack/$bundle_name"
+[ -d "$bundle" ] || { echo "release archive has no Unicity AOS bundle" >&2; exit 1; }
+
+for file in bin/aos libexec/install.sh runtime/bin/astrid runtime/bin/astrid-daemon runtime/bin/astrid-build runtime/bin/astrid-emit release-manifest.json Distro.toml capsule-assets.txt; do
+  [ -f "$bundle/$file" ] || { echo "release archive is missing $file" >&2; exit 1; }
+done
+[ -d "$bundle/capsules" ] || { echo "release archive has no capsule directory" >&2; exit 1; }
+if ! awk '
+  !/^astrid-capsule-[a-z0-9-]+\.capsule$/ { invalid = 1 }
+  seen[$0]++ { duplicate = 1 }
+  END { exit invalid || duplicate || NR != 18 }
+' "$bundle/capsule-assets.txt"; then
+  echo "release archive has an invalid capsule asset manifest" >&2
+  exit 1
+fi
+capsule_count=$(find "$bundle/capsules" -mindepth 1 -maxdepth 1 -print | wc -l | tr -d ' ')
+[ "$capsule_count" -eq 18 ] || { echo "release archive capsule set is incomplete" >&2; exit 1; }
+while IFS= read -r capsule; do
+  capsule_path="$bundle/capsules/$capsule"
+  [ -f "$capsule_path" ] && [ ! -L "$capsule_path" ] || {
+    echo "release archive contains a missing or non-regular capsule asset: $capsule" >&2
+    exit 1
+  }
+done < "$bundle/capsule-assets.txt"
+
+staged_version=$("$bundle/bin/aos" --version | awk '{print $NF}')
+if ! printf '%s\n' "$staged_version" | grep -Eq '^(202[6-9]|20[3-9][0-9])\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+  echo "staged AOS binary reported an invalid product version" >&2
+  exit 1
+fi
+if [ "$staged_version" != "$AOS_VERSION" ]; then
+  echo "staged AOS version $staged_version does not match requested version $AOS_VERSION" >&2
+  exit 1
+fi
+if [ "$bundle_name" != "unicity-aos-${staged_version}-${target}" ]; then
+  echo "release bundle root does not match its product version and target" >&2
+  exit 1
+fi
+
+release_dir="$AOS_HOME/releases/$staged_version"
+release_stage="$AOS_HOME/releases/.${staged_version}.new.$$"
+release_backup="$AOS_HOME/releases/.${staged_version}.rollback.$$"
+for managed in "$AOS_HOME" "$AOS_HOME/libexec" "$AOS_HOME/runtime" "$AOS_HOME/runtime/bin" "$AOS_HOME/releases" "$release_dir" "$release_dir/capsules" "$AOS_HOME/update" "$AOS_HOME/update/channels"; do
+  [ ! -L "$managed" ] || { echo "refusing symlinked managed path: $managed" >&2; exit 1; }
+done
+if [ -e "$release_dir" ] && [ ! -d "$release_dir" ]; then
+  echo "refusing non-directory release destination: $release_dir" >&2
+  exit 1
+fi
+if [ -e "$release_stage" ] || [ -e "$release_backup" ]; then
+  echo "refusing stale release transaction state for $staged_version" >&2
+  exit 1
+fi
+if [ -L "$AOS_BIN_DIR" ]; then
+  echo "refusing symlinked binary directory: $AOS_BIN_DIR" >&2
+  exit 1
+fi
+if [ -L "$AOS_BIN_DIR/aos" ] || { [ -e "$AOS_BIN_DIR/aos" ] && [ ! -f "$AOS_BIN_DIR/aos" ]; }; then
+  echo "refusing non-regular install destination: $AOS_BIN_DIR/aos" >&2
+  exit 1
+fi
+
+if [ -x "$AOS_BIN_DIR/aos" ] && [ "$ASSUME_YES" -ne 1 ]; then
+  answer=
+  if ! has_interactive_tty || ! prompt_from_tty 'Replace the existing Unicity AOS installation? [y/N] '; then
+    echo "an existing Unicity AOS installation was found; rerun with --yes to replace it without a prompt" >&2
+    exit 1
+  fi
+  case "$answer" in y|Y|yes|YES) ;; *) echo "Installation cancelled."; exit 0 ;; esac
+fi
+
+acquire_install_lock
+validate_accepted_channel
+
+if [ -x "$AOS_BIN_DIR/aos" ]; then
+  "$AOS_BIN_DIR/aos" stop >/dev/null 2>&1 || true
+fi
+
+mkdir -p "$AOS_BIN_DIR" "$AOS_HOME/libexec" "$AOS_HOME/runtime/bin" "$AOS_HOME/releases"
+chmod 700 "$AOS_HOME" "$AOS_HOME/libexec" "$AOS_HOME/runtime" "$AOS_HOME/runtime/bin" "$AOS_HOME/releases"
+if [ -n "$channel_root" ]; then
+  mkdir -p "$channel_root/generations"
+  chmod 700 "$AOS_HOME/update" "$AOS_HOME/update/channels" "$channel_root" "$channel_root/generations"
+fi
+if [ "$AOS_BIN_DIR" = "$AOS_HOME/bin" ]; then
+  chmod 700 "$AOS_BIN_DIR"
+fi
+rollback="$work/rollback"
+mkdir "$rollback"
+
+install_one() {
+  source=$1
+  destination=$2
+  name=$3
+  mode=$4
+  temporary="${destination}.new.$$"
+  if [ -L "$destination" ] || { [ -e "$destination" ] && [ ! -f "$destination" ]; }; then
+    echo "refusing non-regular install destination: $destination" >&2
+    return 1
+  fi
+  if [ -f "$destination" ]; then
+    cp -p "$destination" "$rollback/$name" || return 1
+  fi
+  cp "$source" "$temporary" || return 1
+  chmod "$mode" "$temporary" || return 1
+  : > "$rollback/$name.touched" || return 1
+  mv -f "$temporary" "$destination" || return 1
+}
+
+stage_channel_receipt() {
+  [ -n "$channel_root" ] || return 0
+  mkdir -p "$channel_root/generations"
+  chmod 700 "$AOS_HOME/update" "$AOS_HOME/update/channels" "$channel_root" "$channel_root/generations"
+  if [ -e "$channel_generation_dir" ]; then
+    [ -d "$channel_generation_dir" ] && [ ! -L "$channel_generation_dir" ] || {
+      echo "channel generation receipt is not a directory" >&2
+      return 1
+    }
+    existing_metadata="$channel_generation_dir/channel.toml"
+    existing_bundle="$channel_generation_dir/channel.toml.sigstore.json"
+    [ -f "$existing_metadata" ] && [ ! -L "$existing_metadata" ] && \
+      [ -f "$existing_bundle" ] && [ ! -L "$existing_bundle" ] || {
+      echo "channel generation receipt is incomplete" >&2
+      return 1
+    }
+    "$COSIGN_BIN" verify-blob \
+      --bundle "$existing_bundle" \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      --certificate-identity "$channel_identity" \
+      --use-signed-timestamps \
+      "$existing_metadata" >/dev/null
+    validate_channel_metadata "$existing_metadata" "$AOS_CHANNEL" 0
+    cmp -s "$work/channel.toml" "$existing_metadata" || {
+      echo "channel generation receipt conflicts with signed metadata" >&2
+      return 1
+    }
+  else
+    generation_stage="$channel_root/generations/.${channel_generation}.new.$$"
+    [ ! -e "$generation_stage" ] || { echo "stale channel receipt transaction exists" >&2; return 1; }
+    mkdir "$generation_stage"
+    chmod 700 "$generation_stage"
+    install -m 0600 "$work/channel.toml" "$generation_stage/channel.toml"
+    install -m 0600 "$work/channel.toml.sigstore.json" "$generation_stage/channel.toml.sigstore.json"
+    mv "$generation_stage" "$channel_generation_dir"
+  fi
+  printf '%s\n' "$channel_generation" > "$work/channel-current"
+  chmod 600 "$work/channel-current"
+  sync
+  install_one "$work/channel-current" "$channel_current_path" channel-current 600
+  sync
+}
+
+restore() {
+  result=0
+  rm -rf "$release_stage"
+  if [ -d "$release_backup" ]; then
+    rm -rf "$release_dir"
+    mv "$release_backup" "$release_dir" || result=1
+  elif [ -f "$rollback/release.touched" ]; then
+    rm -rf "$release_dir" || result=1
+  fi
+  for name in aos installer astrid astrid-daemon astrid-build astrid-emit channel-current; do
+    case "$name" in
+      aos) destination="$AOS_BIN_DIR/aos" ;;
+      installer) destination="$AOS_HOME/libexec/install.sh" ;;
+      channel-current) destination=$channel_current_path ;;
+      *) destination="$AOS_HOME/runtime/bin/$name" ;;
+    esac
+    [ -n "$destination" ] || continue
+    rm -f "${destination}.new.$$" "${destination}.restore.$$"
+    if [ ! -f "$rollback/$name.touched" ]; then
+      continue
+    elif [ -f "$rollback/$name" ]; then
+      temporary="${destination}.restore.$$"
+      if ! cp -p "$rollback/$name" "$temporary" || ! mv -f "$temporary" "$destination"; then
+        result=1
+      fi
+    else
+      rm -f "$destination" || result=1
+    fi
+  done
+  return "$result"
+}
+
+installation_started=1
+if ! install_one "$bundle/bin/aos" "$AOS_BIN_DIR/aos" aos 755; then exit 1; fi
+if ! install_one "$bundle/libexec/install.sh" "$AOS_HOME/libexec/install.sh" installer 600; then exit 1; fi
+for name in astrid astrid-daemon astrid-build astrid-emit; do
+  if ! install_one "$bundle/runtime/bin/$name" "$AOS_HOME/runtime/bin/$name" "$name" 755; then exit 1; fi
+done
+mkdir "$release_stage"
+chmod 700 "$release_stage"
+mkdir "$release_stage/capsules"
+chmod 700 "$release_stage/capsules"
+install -m 0600 "$bundle/release-manifest.json" "$release_stage/release-manifest.json"
+install -m 0600 "$bundle/Distro.toml" "$release_stage/Distro.toml"
+install -m 0600 "$bundle/capsule-assets.txt" "$release_stage/capsule-assets.txt"
+while IFS= read -r capsule; do
+  install -m 0600 "$bundle/capsules/$capsule" "$release_stage/capsules/$capsule"
+done < "$bundle/capsule-assets.txt"
+if [ -d "$release_dir" ]; then
+  mv "$release_dir" "$release_backup"
+fi
+: > "$rollback/release.touched"
+if ! mv "$release_stage" "$release_dir"; then
+  exit 1
+fi
+release_committed=1
+stage_channel_receipt
+installation_started=0
+rm -rf "$release_backup"
+release_install_lock
+
+echo "Installed Unicity AOS $staged_version."
+case ":$PATH:" in
+  *":$AOS_BIN_DIR:"*) init_command="aos init" ;;
+  *)
+    echo "Add $AOS_BIN_DIR to PATH."
+    init_command="$AOS_BIN_DIR/aos init"
+    ;;
+esac
+
+if [ "$SKIP_MIGRATION_PROMPT" -ne 1 ] && has_interactive_tty; then
+  "$AOS_BIN_DIR/aos" </dev/tty >/dev/tty 2>/dev/tty || true
+else
+  echo "Run: $init_command"
+fi

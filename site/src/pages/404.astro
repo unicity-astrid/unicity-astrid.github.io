@@ -1,0 +1,35 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Page not found · Unicity AOS" description="The requested Unicity AOS page was not found." noindex>
+  <main class="missing wrap">
+    <p class="eyebrow">404</p>
+    <h1>That page moved.</h1>
+    <p class="dim">
+      The embedded Astrid Book moved out of the product site. Product development
+      documentation now lives in the <a href="/developers/">Unicity AOS Developer Guide</a>.
+      Runtime documentation remains with <a href="https://github.com/astrid-runtime/book">Astrid Runtime</a>.
+    </p>
+  </main>
+</Base>
+
+<script is:inline>
+  if (location.pathname === '/book' || location.pathname.startsWith('/book/')) {
+    location.replace(`/developers/overview/${location.hash}`);
+  }
+</script>
+
+<style>
+  .missing {
+    min-height: 72vh;
+    display: grid;
+    place-content: center;
+    gap: 1.25rem;
+    max-width: 44rem;
+  }
+
+  .missing h1 {
+    font-size: var(--step-5);
+  }
+</style>

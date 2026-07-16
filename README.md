@@ -1,36 +1,49 @@
-# The Astrid website
+# Unicity AOS website
 
-**The site does not describe Astrid. The site runs Astrid.**
+Product website and developer documentation for **Unicity AOS**, the modular
+Agent Operating System from Unicity. The site explains the product distribution
+while preserving the boundary to [Astrid Runtime](https://github.com/astrid-runtime/astrid),
+the open operating-system engine beneath it.
 
-This page boots the real kernel, compiled to WebAssembly, in your browser tab.
-Every live element on it is driven by real kernel behaviour: real event-bus
-deliveries, real capability grants and denials, real audit entries. The
-capsules it installs are the same sealed components that run in production.
-Open devtools and check.
+The production hostname is [aos.unicity.ai](https://aos.unicity.ai/). Until the
+first signed AOS product release is published, the install surface visibly marks
+stable, dev, nightly, Homebrew, and AOS Oracle channels as staged and keeps every
+copy action disabled.
 
-Live at [unicity-astrid.github.io](https://unicity-astrid.github.io/).
+## Repository layout
 
-## Layout
-
-| Path | What it is |
-|------|------------|
-| `site/` | The Astro site (all pages, components, and in-tab runtime glue) |
-| `kernel-web/` | wasm-bindgen bridge over the real `astrid-kernel` crate |
-| `site-capsules/` | The section capsules the page installs into its own kernel |
-| `kernel-smoke/`, `spike/` | Portability proofs that made the above possible |
-| `notes/`, `DESIGN.md` | Working design notes, kept honest and public |
+| Path | Purpose |
+| --- | --- |
+| `site/` | Astro website, developer guide, local docs lens, and product pages |
+| `kernel-web/` | Browser bridge for the real Astrid kernel used by interactive explanations |
+| `site-capsules/` | WebAssembly components used only by the in-browser experience |
+| `kernel-smoke/` and `spike/` | Runtime portability and component-model probes |
+| `notes/` and `DESIGN.md` | Implementation notes and the current product-site contract |
 
 ## Develop
 
 ```sh
 cd site
 npm ci
+npm run check
+npm run build
 npm run dev
 ```
 
-`npm run build` produces the fully static site in `site/dist/`; deployment is
-the Pages workflow in `.github/workflows/pages.yml`. Nothing on the page is
-staged and nothing is faked: if a demo cannot run in your browser, it says so.
+Both `check` and `build` are release gates. The product release integration is
+centralized in `site/src/lib/release.ts`; `available` may become `true` only
+after matching AOS artifacts, checksums, signatures, and installer assets exist.
 
-Astrid itself lives at [unicity-astrid/astrid](https://github.com/unicity-astrid/astrid).
-Made by [Unicity](https://www.unicity.ai/).
+The default installer channel is stable. Development and nightly channels are
+always explicit (`--channel dev` and `--channel nightly`) and never fall back to
+stable. The commands are documentation only while their channel metadata is
+unavailable.
+
+`site/public/install.sh` is a byte-for-byte mirror of the canonical `aos-ce`
+installer. Pages CI records the exact source commit in
+`AOS_INSTALLER_SOURCE_COMMIT` and compares both source and built copies. Update
+that commit and the mirror together only after the canonical installer contract
+has landed.
+
+Community Edition source lives in
+[unicity-aos/aos-ce](https://github.com/unicity-aos/aos-ce).

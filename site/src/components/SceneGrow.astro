@@ -2,10 +2,10 @@
 /** Section 5 — "Agents that grow themselves." The extensibility crescendo:
  *  the self-extension loop as a five-step storyboard, then the pull-quote. */
 const steps = [
-  { n: '01', title: 'Read', body: 'Your agent reads the manual. The manual ships inside Unicity Astrid OS, so it always knows how the machine it lives in works.' },
+  { n: '01', title: 'Read', body: 'Your agent reads the developer guide, so it can learn how the machine it lives in works.' },
   { n: '02', title: 'Write', body: 'It writes itself a new part: a capsule, declaring up front exactly which permissions it would need. Nothing more.' },
-  { n: '03', title: 'Build', body: 'It builds the part inside the sandbox, where nothing escapes and every move is recorded.' },
-  { n: '04', title: 'Install', body: 'It installs the part live. Nothing restarts. The new part gets only the permissions you allow, never more.' },
+  { n: '03', title: 'Build', body: 'It builds the part inside a controlled tool boundary, with every granted operation recorded.' },
+  { n: '04', title: 'Install', body: 'With operator approval, it installs the part live. Nothing restarts. The new part gets only the permissions you allow, never more.' },
   { n: '05', title: 'Grow', body: 'Your AI now has an ability nobody shipped it with, and the new part documents itself, so the next agent learns it too.' },
 ];
 ---
@@ -27,15 +27,15 @@ const steps = [
     </ol>
     <blockquote class="grow-quote">
       <p>
-        “An agent on Unicity Astrid OS can extend itself. It can write a capsule, compile
-        it, install it, and call it, all inside the sandbox, all recorded on
-        the thread.”
+        “The AOS composition is designed so an agent can extend itself: write a
+        capsule, compile it, request installation, and call it through explicit
+        permissions, with each operation recorded.”
       </p>
-      <cite class="mono dim">The Astrid Book, afterword</cite>
+      <cite class="mono dim">Unicity AOS composition model</cite>
     </blockquote>
 
     <!-- The finale: stop describing the loop and run its last two steps here.
-         The part is the real production prompt-builder capsule; install is a
+         The part comes from the AOS CE prompt-builder capsule source; install is a
          real instantiation + a real capability grant; the proof is the reply
          on the bus and the entries on the audit chain. -->
     <div class="card grow-live" id="grow-live" data-state="idle">
@@ -43,8 +43,8 @@ const steps = [
         <p class="mono grow-live-k">Steps 04 and 05, live</p>
         <p class="grow-live-lede dim">
           This page's OS doesn't have a prompt-assembly part. Install the real
-          one, the same sealed WebAssembly that runs in production, and watch
-          the OS gain the ability without restarting.
+          capsule from the AOS CE source composition and watch the browser OS
+          gain the ability without restarting.
         </p>
       </div>
       <div class="grow-live-row">
@@ -61,8 +61,8 @@ const steps = [
       <a class="btn btn-primary" href="/playground/">
         Build one right now, in this tab →
       </a>
-      <a class="btn" href="/book/capsule-model/designing-capsules/">
-        Read the capsule chapters
+      <a class="btn" href="/registry/">
+        Browse capsules
       </a>
     </div>
   </div>
@@ -266,7 +266,7 @@ const steps = [
       r.textContent =
         `${journal.length} real host calls · reply carried on the bus` +
         `${assembled ? '' : ' (pending)'} · the grant and the check are on the ` +
-        `permanent record. The receipt further down this page counts all of it.`;
+        `runtime-local record. The receipt further down this page counts all of it.`;
     }
   }
 
@@ -283,7 +283,7 @@ const steps = [
       ]);
       const host = createLiveHost(bridge, { source: SOURCE, kvNs: 'grow.prompt-builder' });
       journal = host.journal;
-      status = 'Installing into the running OS…';
+      status = 'Installing into the browser runtime…';
       render();
       const getCoreModule = async (path: string) =>
         WebAssembly.compile(await (await fetch(`/showcase/${path}`)).arrayBuffer());
@@ -293,7 +293,7 @@ const steps = [
       };
       instance.astridInstall?.();
 
-      // The grant and the check both land on the audit chain: the part gets
+      // The grant and the check both land on the runtime-local audit chain: the part gets
       // a real, revocable permission, not a hard-coded pass.
       tokenId = await bridge.grant(SOURCE, `topic:${TOPIC}`, 'read');
       const ok = await bridge.check(SOURCE, `topic:${TOPIC}`, 'read');
@@ -314,7 +314,7 @@ const steps = [
         'handle_assemble',
         new TextEncoder().encode(
           JSON.stringify({
-            system_prompt: 'You are the Unicity Astrid OS site guide, a secure agent runtime assistant.',
+            system_prompt: 'You are the Unicity AOS site guide, a secure agent runtime assistant.',
             request_id: 'grow-finale-0001',
             model: 'claude-fable-5',
             provider: 'anthropic',
@@ -363,7 +363,7 @@ const steps = [
 
   onKernel((s) => {
     if (s === 'online' && (!status || status.startsWith('Waiting'))) status = '';
-    if (s === 'offline') status = 'The kernel can’t run in this browser, so this demo sits out.';
+    if (s === 'offline') status = 'The kernel can’t run in this browser, so this interaction sits out.';
     render();
   });
   wire();

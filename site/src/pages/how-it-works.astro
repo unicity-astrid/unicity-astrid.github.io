@@ -1,7 +1,7 @@
 ---
 /** /how-it-works — the 01 -> 10 cinematic. The eye stays on the home page;
  *  this tab is the scenes themselves, opening with a quiet title rather than
- *  the hero. Every animated element below is driven by the real kernel. */
+ *  the hero. Every animated element below is driven by the browser runtime. */
 import Base from '../layouts/Base.astro';
 import SceneThesis from '../components/SceneThesis.astro';
 import SceneDumbKernel from '../components/SceneDumbKernel.astro';
@@ -13,24 +13,22 @@ import SceneHome from '../components/SceneHome.astro';
 import SceneGrow from '../components/SceneGrow.astro';
 import SceneAudiences from '../components/SceneAudiences.astro';
 import SceneProof from '../components/SceneProof.astro';
-import SceneAgent from '../components/SceneAgent.astro';
 import SceneBring from '../components/SceneBring.astro';
-import SceneBooks from '../components/SceneBooks.astro';
-import SceneStart from '../components/SceneStart.astro';
 ---
 
 <Base
-  title="How Unicity Astrid OS works — the whole machine, running in your tab"
-  description="The full tour: a dumb kernel, every ability a sealed capsule, power that only narrows, an agent that grows itself. Every animated element is driven by the real Unicity Astrid OS kernel running in this browser."
+  title="How Unicity AOS works · from product to engine"
+  description="The full tour from the Unicity AOS product and capsule distribution down to Astrid Runtime, the engine running in this browser."
 >
   <main>
     <header class="tour-intro wrap">
       <p class="eyebrow">How it works</p>
-      <h1 class="tour-title">The whole machine,<br /><span class="gradient-text">running in your tab</span>.</h1>
+      <h1 class="tour-title">The engine beneath AOS,<br /><span class="gradient-text">running in your tab</span>.</h1>
       <p class="prose dim tour-lede">
-        Not a diagram of Unicity Astrid OS, and not a video. Every animated element below is
-        driven by the real kernel, booted in this browser. Scroll, and watch it
-        route events, grant and deny capabilities, and grow the audit chain.
+        This is not the full Unicity AOS distribution in a browser. Every animated element
+        below is driven by Astrid Runtime, its engine, booted in this tab. Scroll and
+        watch it route events, grant and deny capabilities, and grow a runtime-local
+        audit chain.
       </p>
     </header>
 
@@ -44,10 +42,7 @@ import SceneStart from '../components/SceneStart.astro';
     <SceneGrow />
     <SceneAudiences />
     <SceneProof />
-    <SceneAgent />
     <SceneBring />
-    <SceneBooks />
-    <SceneStart />
   </main>
   <script>
     import { initScenes } from '../scripts/scenes';

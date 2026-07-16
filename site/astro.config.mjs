@@ -2,39 +2,6 @@
 import { defineConfig } from 'astro/config';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
-import { posix, dirname } from 'node:path';
-
-/**
- * Rewrite mdBook-style relative links (`./x.md`, `../part/y.md#frag`) in the
- * book/handbook collections to their site routes. The books stay verbatim in
- * their own repos; only rendered hrefs are adjusted.
- */
-function rehypeMdBookLinks() {
-  /** @param {any} tree @param {any} file */
-  return (tree, file) => {
-    const path = String(file?.path ?? '').replaceAll('\\', '/');
-    const srcMarker = '/astrid-book/src/';
-    const root = '/book';
-    if (!path.includes(srcMarker)) return;
-    const relDir = dirname(path.slice(path.indexOf(srcMarker) + srcMarker.length));
-
-    /** @param {any} node */
-    const walk = (node) => {
-      if (node?.tagName === 'a' && typeof node.properties?.href === 'string') {
-        const href = node.properties.href;
-        if (!/^(https?:|mailto:|#|\/)/.test(href) && /\.md(#|$)/.test(href)) {
-          const [target = '', frag] = href.split('#');
-          const resolved = posix
-            .normalize(posix.join(relDir === '.' ? '' : relDir, target))
-            .replace(/\.md$/, '');
-          node.properties.href = `${root}/${resolved}/${frag ? `#${frag}` : ''}`;
-        }
-      }
-      for (const child of node?.children ?? []) walk(child);
-    };
-    walk(tree);
-  };
-}
 
 const kernelPkg = new URL('../kernel-web/pkg/kernel_web.js', import.meta.url);
 // Until the bridge crate is built, alias to a stub that throws on init so the
@@ -46,12 +13,9 @@ const kernelEntry = existsSync(kernelPkg)
 export default defineConfig({
   // The live host — llms.txt and canonical URLs are built from this, so it
   // must be where the site actually serves.
-  site: 'https://astridos.org',
+  site: 'https://aos.unicity.ai',
   output: 'static',
-  markdown: {
-    shikiConfig: { theme: 'github-dark-default' },
-    rehypePlugins: [rehypeMdBookLinks],
-  },
+  markdown: { shikiConfig: { theme: 'github-dark-default' } },
   vite: {
     resolve: {
       alias: {

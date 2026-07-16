@@ -1,0 +1,33 @@
+---
+import { getCollection, render } from 'astro:content';
+import Docs from '../../layouts/Docs.astro';
+import type { NavGroup } from '../../lib/docs-nav';
+
+export async function getStaticPaths() {
+  return (await getCollection('developers')).map((guide) => ({
+    params: { slug: guide.id },
+  }));
+}
+
+const slug = Astro.params.slug ?? '';
+const guides = (await getCollection('developers')).sort((a, b) => a.data.order - b.data.order);
+const guide = guides.find((entry) => entry.id === slug);
+if (!guide) return Astro.redirect('/developers/');
+const { Content, headings } = await render(guide);
+const nav: NavGroup[] = guides.reduce<NavGroup[]>((groups, entry) => {
+  let group = groups.find((candidate) => candidate.part === entry.data.part);
+  if (!group) {
+    group = { part: entry.data.part, items: [] };
+    groups.push(group);
+  }
+  group.items.push({ title: entry.data.title, slug: entry.id });
+  return groups;
+}, []);
+const index = guides.findIndex((entry) => entry.id === guide.id);
+const prev = index > 0 ? { title: guides[index - 1].data.title, slug: guides[index - 1].id } : undefined;
+const next = index + 1 < guides.length ? { title: guides[index + 1].data.title, slug: guides[index + 1].id } : undefined;
+---
+
+<Docs guideTitle="Unicity AOS Developer Guide" basePath="/developers" title={guide.data.title} nav={nav} currentSlug={guide.id} headings={headings} {prev} {next}>
+  <Content />
+</Docs>

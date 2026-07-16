@@ -16,7 +16,7 @@ const residents = [
     <p class="eyebrow">05 · the homes</p>
     <h2>A home of its own.<br />A door of its own.</h2>
     <p>
-      Every agent on Unicity Astrid OS is a resident with its own home: its own storage,
+      Every agent on Unicity AOS is a resident with its own home: its own storage,
       its own memory, its own keys. Two residents live on this page. Leave
       each a note, then try to make one read the other's. The OS itself
       refuses, and the refusal goes on the record like everything else.
@@ -38,6 +38,7 @@ const residents = [
               class="mono home-input"
               type="text"
               maxlength="60"
+              aria-label={`Note for ${r.label}`}
               placeholder={`Leave ${r.label} a note…`}
               autocomplete="off"
               disabled

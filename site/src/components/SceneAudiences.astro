@@ -1,29 +1,28 @@
 ---
-/** Section — who it's for. Four audiences, each with a claim the book can
- *  back, linking straight into the relevant chapters. */
+/** Section — who it is for, linking each audience to the product path. */
 // the "bring your existing agent" audience has its own section (SceneBring);
 // these are the remaining seats
 const audiences = [
   {
     kicker: 'You juggle several AIs',
     title: 'They finally work together.',
-    body: 'Today every agent is its own silo, with its own tools and its own amnesia. On Unicity Astrid OS they share one message line, one toolbox, one memory, and one set of rules. Different brains, one workshop.',
-    href: '/book/bus/tools-as-ipc/',
-    link: 'How sharing works',
+    body: 'Today every agent is its own silo, with its own tools and its own amnesia. On Unicity AOS they share one message line, one toolbox, one memory, and one set of rules. Different brains, one workshop.',
+    href: '/how-it-works/',
+    link: 'See the architecture',
   },
   {
     kicker: 'You host AI for others',
     title: 'Thousands of tenants. One server.',
-    body: 'Every tenant is walled off by construction, while the parts they all use are shared instead of duplicated: dramatically less compute per tenant. The density benchmark is on the roadmap; the isolation is shipped today.',
-    href: '/book/identity/principal-and-isolation/',
-    link: 'How isolation works',
+    body: 'Every tenant is walled off by construction, while the parts they all use are shared instead of duplicated: dramatically less compute per tenant. The density benchmark is on the roadmap; the isolation boundary is implemented in Astrid Runtime today.',
+    href: '/how-it-works/',
+    link: 'See the isolation model',
   },
   {
     kicker: 'You build tools',
     title: 'Build once. Every AI gains it.',
-    body: 'Publish one capsule and any agent on any Unicity Astrid OS can install it, with the permissions it needs declared up front and your signature on the artifact. No per-vendor plugins. One part, everywhere.',
-    href: '/book/capsule-model/designing-capsules/',
-    link: 'Designing capsules',
+    body: 'Build one signed capsule and reuse it across AOS compositions, with the permissions it needs declared up front. The planned registry will make that distribution path public. No per-vendor plugins. One part, everywhere.',
+    href: '/registry/',
+    link: 'Browse capsules',
   },
 ];
 ---

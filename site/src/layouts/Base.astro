@@ -7,14 +7,21 @@ import '../styles/tokens.css';
 import '../styles/base.css';
 import { ClientRouter } from 'astro:transitions';
 import Hud from '../components/Hud.astro';
+import SceneStart from '../components/SceneStart.astro';
 import AgentPill from '../components/AgentPill.astro';
+import antonLatin from '@fontsource/anton/files/anton-latin-400-normal.woff2?url';
+import interLatin from '@fontsource-variable/inter/files/inter-latin-standard-normal.woff2?url';
+import geistMonoLatin400 from '@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2?url';
+import geistMonoLatin600 from '@fontsource/geist-mono/files/geist-mono-latin-600-normal.woff2?url';
 
 interface Props {
   title: string;
   description: string;
+  noindex?: boolean;
 }
 
-const { title, description } = Astro.props;
+const { title, description, noindex = false } = Astro.props;
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site) : Astro.url;
 ---
 
 <!doctype html>
@@ -24,13 +31,22 @@ const { title, description } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
     <meta name="generator" content={Astro.generator} />
+    <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content="Unicity AOS" />
+    <meta name="twitter:card" content="summary" />
     <meta name="theme-color" content="#060606" />
+    <link rel="preload" href={antonLatin} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={geistMonoLatin400} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={geistMonoLatin600} as="font" type="font/woff2" crossorigin />
     <ClientRouter />
   </head>
   <body>
@@ -39,17 +55,17 @@ const { title, description } = Astro.props;
          page never reloads; only the content swaps. -->
     <astrid-rail aria-hidden="true" transition:persist="rail"></astrid-rail>
     <nav class="site-tabs mono" aria-label="Site" transition:persist="tabs">
-      <a href="/" class="site-mark">UNICITY ASTRID OS</a>
+      <a href="/" class="site-mark">UNICITY AOS</a>
       <a href="/build/">build</a>
       <a href="/how-it-works/">how it works</a>
       <a href="/registry/">registry</a>
-      <a href="/playground/">playground</a>
-      <a href="/book/">the book</a>
+      <a href="/developers/">developers</a>
       <a href="/start/">install</a>
     </nav>
     <div transition:persist="hud"><Hud /></div>
     <div transition:persist="agent-pill"><AgentPill /></div>
     <slot />
+    <SceneStart />
     <script>
       import { bootKernel } from '../scripts/kernel';
       import { bootSectionCapsules } from '../scripts/section-capsules';
@@ -102,7 +118,7 @@ const { title, description } = Astro.props;
       /* Phones: the floating links become a real bar — full width, blurred
          backdrop so they survive sitting over the hero, scrollable sideways
          instead of wrapping over content, and clear of the notch. */
-      @media (max-width: 640px) {
+      @media (max-width: 900px) {
         .site-tabs {
           left: 0;
           right: 0;

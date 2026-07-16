@@ -1,25 +1,44 @@
 ---
 /** Section 10 — bring your own agent. The point every monolith-agent user
  *  needs to hear: Astrid goes UNDER the agent you already run. Platform
- *  rows like a download table — Claude is real today (the extension
- *  exists); the rest are stated as coming, never implied as shipped.
+ *  rows like a download table. Adapter source is distinguished from a
+ *  published base-product release.
  *  Marks are the platforms' own (nominative use), rendered currentColor. */
 import claudeMark from '../assets/brands/claude.svg?raw';
 import codexMark from '../assets/brands/codex.svg?raw';
 import hermesMark from '../assets/brands/hermes.svg?raw';
 import openclawMark from '../assets/brands/openclaw.svg?raw';
+import { AOS_RELEASE } from '../lib/release';
 
-const platforms = [
+type Platform = {
+  id: string;
+  name: string;
+  mark: string;
+  note: string;
+  live: boolean;
+  href?: string;
+  cta?: string;
+};
+
+const platforms: Platform[] = [
   {
     id: 'claude',
     name: 'Claude',
     mark: claudeMark,
-    note: 'Extension available today',
+    note: AOS_RELEASE.oracles.available ? 'AOS Oracle available' : 'AOS Oracle staged',
     href: '/start/#claude',
     cta: 'get it →',
-    live: true,
+    live: AOS_RELEASE.oracles.available,
   },
-  { id: 'codex', name: 'Codex', mark: codexMark, note: 'Coming', live: false },
+  {
+    id: 'codex',
+    name: 'Codex',
+    mark: codexMark,
+    note: AOS_RELEASE.oracles.available ? 'AOS Oracle available' : 'AOS Oracle staged',
+    href: '/start/#codex',
+    cta: 'view →',
+    live: AOS_RELEASE.oracles.available,
+  },
   { id: 'hermes', name: 'Hermes', mark: hermesMark, note: 'Coming', live: false },
   { id: 'openclaw', name: 'OpenClaw', mark: openclawMark, note: 'Coming', live: false },
 ];
@@ -34,10 +53,10 @@ const platforms = [
         <p>
           Every agent today is a monolith: brain, tools, and memory welded
           into one app, each one rebuilding the same house from scratch and
-          forgetting everything the moment it closes. Unicity Astrid OS slots in
+          forgetting everything the moment it closes. Unicity AOS slots in
           <em>underneath</em>. Your agent keeps being itself, same brain,
           same interface you already like, and gains the OS: a shared
-          toolbox, permanent memory, house rules it cannot break, receipts
+          toolbox, durable memory, enforceable house rules, and auditable records
           for everything it does.
         </p>
         <p class="dim">
@@ -53,7 +72,7 @@ const platforms = [
               <span class="bring-logo" aria-hidden="true" set:html={p.mark} />
               <span class="bring-name">{p.name}</span>
               <span class="mono bring-note dim">{p.note}</span>
-              {p.live && p.href ? (
+              {p.live && p.href && p.cta ? (
                 <a class="mono bring-cta" href={p.href}>{p.cta}</a>
               ) : (
                 <span class="mono bring-cta bring-soon">Soon</span>

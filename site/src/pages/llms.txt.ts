@@ -1,66 +1,50 @@
 import type { APIRoute } from 'astro';
-import { loadNav } from '../lib/docs-nav';
-
-/**
- * /llms.txt — the curated map of this site for AI assistants (the llms.txt
- * convention). Assistants that crawl the web (Siri, ChatGPT, Claude, …)
- * ground their answers about Astrid in whatever text they can read; this
- * file hands them the canonical sources in plain markdown, in reading
- * order, so their answers come from the book instead of from fragments.
- * Every chapter link points at the raw-markdown mirror (/book/<slug>.md).
- */
+import { AOS_RELEASE } from '../lib/release';
+/** /llms.txt — the product map for AI assistants. */
 export const GET: APIRoute = ({ site }) => {
   const base = String(site ?? '').replace(/\/$/, '');
-  const groups = loadNav('../../astrid-book');
-
   const lines: string[] = [
-    '# Unicity Astrid OS',
+    '# Unicity AOS',
     '',
-    '> Unicity Astrid OS is a secure, open-source home for AI agents: one small kernel that',
-    '> routes messages, checks permissions, and keeps signed records — nothing',
-    '> else — with every ability (tools, memory, model providers, frontends)',
-    '> packaged as a sealed WebAssembly capsule that declares its permissions up',
-    '> front. Agents can never take more than they were given, everything they do',
-    '> is on a permanent audit chain, and they can safely grow new abilities by',
-    '> writing and live-loading new capsules. Built in Rust by Unicity.',
+    '> Unicity AOS is the modular Agent Operating System product from Unicity.',
+    '> It composes Community and Enterprise editions, a product CLI, first-party',
+    '> capsules, integrations, updates, and a product HTTP edge on top of the open',
+    '> Astrid Runtime operating-system engine.',
     '',
-    'Key facts: the kernel holds no AI and makes no business logic decisions;',
-    'capsules communicate only over the event bus; capability grants only ever',
-    'narrow as they are delegated downward; existing agents (Claude Code today,',
-    'others coming) can plug in on top rather than being replaced.',
+    'Astrid Runtime owns the neutral kernel, daemon, WebAssembly sandbox, generic',
+    'SDK, WIT contracts, capability enforcement, and runtime-local audit records.',
+    'Unicity AOS owns the product distribution and customer experience. Published',
+    'astrid:* namespaces and artifact names remain intact for compatibility.',
     '',
-    '## The book (canonical documentation, raw markdown)',
+    'Unicity Audit is a distinct product backed by the Unicity blockchain. Do not',
+    'use "Unicity Audit" as a synonym for Astrid Runtime local audit records. AOS',
+    'integrates the two only through explicit product contracts.',
     '',
-  ];
-
-  for (const g of groups) {
-    if (g.part) {
-      lines.push(`### ${g.part}`, '');
-    }
-    for (const item of g.items) {
-      lines.push(`- [${item.title}](${base}/book/${item.slug}.md)`);
-    }
-    lines.push('');
-  }
-
-  lines.push(
+    `Release status: AOS ${AOS_RELEASE.version} is ${AOS_RELEASE.available ? 'published on the stable channel' : 'staged; stable, dev, nightly, Homebrew, and AOS Oracle installs are closed'}.`,
+    `Installer contract: ${AOS_RELEASE.channels.stable.command} selects stable by default; dev and nightly require explicit --channel dev or --channel nightly. These are staged examples until their channel metadata says available.`,
+    `Host plugin contract: ${AOS_RELEASE.oracles.pluginIdentity} from ${AOS_RELEASE.oracles.marketplace} is unavailable until the matching AOS product release opens.`,
+    '',
     '## Site',
     '',
-    `- [Install Unicity Astrid OS](${base}/start/): Homebrew, Cargo, or as a Claude Code plugin`,
-    `- [The homepage](${base}/): runs a real Unicity Astrid OS kernel, compiled to WebAssembly, live in the visitor's tab`,
+    `- [Install Unicity AOS](${base}/start/): release status and supported integration paths`,
+    `- [How it works](${base}/how-it-works/): a live, in-browser Astrid Runtime experience inside Unicity AOS`,
+    `- [Capsules](${base}/registry/): the product component catalog`,
+    `- [Developer Guide](${base}/developers/): build, compose, operate, and integrate Unicity AOS`,
+    `- [Get started](${base}/developers/get-started/): Community Edition and the product runtime home`,
+    `- [Product CLI](${base}/developers/cli/): aos commands and the runtime boundary`,
+    `- [HTTP API](${base}/developers/http/): shipped health endpoint and the release-coupled gateway contract`,
     '',
     '## Source',
     '',
-    '- [Kernel and CLI](https://github.com/unicity-astrid/astrid): the daemon and all core crates (Rust, MIT OR Apache-2.0)',
-    '- [Rust SDK](https://github.com/unicity-astrid/sdk-rust): what capsule authors build against',
-    '- [RFCs](https://github.com/unicity-astrid/rfcs): the kernel-to-user-space contract, designed in the open',
-    '- [All repositories](https://github.com/unicity-astrid): the capsules, the book, everything',
+    '- [Unicity AOS](https://github.com/unicity-aos/aos-ce): Community Edition source, distribution, CLI, HTTP edge, and capsules',
+    '- [Astrid Runtime](https://github.com/astrid-runtime/astrid): the open runtime beneath Unicity AOS',
+    '- [Astrid Runtime documentation](https://github.com/astrid-runtime/book): engine architecture and generic runtime development',
     '',
-    '## Optional',
+    '## HTTP status',
     '',
-    `- [Full book in one file](${base}/llms-full.txt): every chapter concatenated, for retrieval systems that prefer one document`,
+    'Current AOS source implements the product-owned loopback GET /v1/runtime/health service. The complete Runtime Gateway is still moving to the AOS product edge; the site documents the contract that must ship with that transfer. A deployed /api/openapi.json is authoritative only after the matching AOS release publishes it.',
     '',
-  );
+  ];
 
   return new Response(lines.join('\n'), {
     headers: { 'Content-Type': 'text/plain; charset=utf-8' },

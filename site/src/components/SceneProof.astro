@@ -1,6 +1,6 @@
 ---
 /** Section 7 — the receipt. The page's closing argument is a till-style
- *  printout of what the OS in this tab actually did while the visitor was
+ *  printout of what the runtime engine in this tab actually did while the visitor was
  *  here: real message counts, their guard blocks, their permission
  *  decisions. The five-lock gate rides along as one compact strip — the
  *  receipt is the proof; the locks are the mechanism. Numbers only move
@@ -10,7 +10,7 @@ const locks = [
   'Permission checks',
   'Tool-level gates',
   'The sandbox',
-  'Approval + the permanent record',
+  'Approval + a runtime-local record',
 ];
 ---
 
@@ -20,11 +20,11 @@ const locks = [
       <p class="eyebrow">08 · the receipt</p>
       <h2 class="proof-title">Proof, not promises.</h2>
       <p>
-        Most AI safety is a polite request written into a prompt. The security of Unicity Astrid OS is
-        five separate locks, each of which must fail before anything is lost,
-        and a permanent record that cannot quietly forget. You don't have to
-        trust that. Below is what the OS running in this tab actually did
-        while you were here.
+        Most AI safety is a polite request written into a prompt. Unicity AOS builds on
+        separate runtime controls: labelled input, capability checks, tool gates,
+        sandboxing, approvals, and audit records. The browser engine below is
+        Astrid Runtime, not the full AOS product. It records only this tab's local
+        runtime activity; Unicity Audit on the blockchain is a separate integration.
       </p>
       <p class="mono locks-strip dim">
         {locks.join(' · ')}
@@ -32,7 +32,7 @@ const locks = [
     </div>
 
     <div class="card receipt mono">
-      <p class="receipt-head">UNICITY ASTRID OS · THIS TAB · LIVE</p>
+      <p class="receipt-head">ASTRID RUNTIME · THIS TAB · LIVE</p>
       <dl class="receipt-rows">
         <div><dt>Messages carried</dt><dd id="rc-events">0</dd></div>
         <div><dt>Stopped by the guard</dt><dd id="rc-blocked">0</dd></div>
@@ -41,10 +41,10 @@ const locks = [
         <div class="receipt-deny"><dt>Permissions denied to you</dt><dd id="rc-denied">0</dd></div>
       </dl>
       <p class="receipt-note dim" id="rc-note">
-        Short receipt? You haven't touched the demos yet. Nothing here moves
+        Short receipt? You haven't touched the live controls yet. Nothing here moves
         unless you move it.
       </p>
-      <p class="receipt-foot">— NOTHING STAGED · NOTHING FAKED —</p>
+      <p class="receipt-foot">— LOCAL RUNTIME RECORD —</p>
     </div>
   </div>
 </section>
