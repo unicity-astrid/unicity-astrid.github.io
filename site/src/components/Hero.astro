@@ -82,12 +82,11 @@ import { AOS_RELEASE } from '../lib/release';
   }
 
   .hero-inner {
-    --hero-exit: clamp(0, calc((var(--hero-p, 0) - 0.72) * 3.5714), 1);
     position: relative;
     z-index: 1;
     padding-block: var(--s-7);
-    opacity: calc(1 - var(--hero-exit));
-    translate: 0 calc(var(--hero-exit) * -2rem);
+    opacity: var(--hero-copy-opacity, 1);
+    translate: 0 var(--hero-copy-y, 0rem);
   }
 
   .hero.is-condensed .hero-inner {
