@@ -33,22 +33,20 @@ const [
   ]);
 
 const copyButtons = start.match(/<button class="mono start-copy"[^>]*>/g) ?? [];
-assert.equal(copyButtons.length, 7, 'expected stable, dev, nightly, Homebrew, and three Oracle controls');
-for (const [index, button] of copyButtons.entries()) {
-  if (index === 0 || index === 3) {
-    assert.doesNotMatch(button, / disabled(?:\s|>)/, 'stable and Homebrew must be enabled');
-  } else {
-    assert.match(button, / disabled(?:\s|>)/, 'dev, nightly, and Oracle controls must be disabled');
-  }
+assert.equal(copyButtons.length, 2, 'expected stable and Homebrew controls');
+for (const button of copyButtons) {
+  assert.doesNotMatch(button, / disabled(?:\s|>)/, 'published install methods must be enabled');
 }
 
-for (const expected of [
+for (const forbidden of [
   '--channel dev',
   '--channel nightly',
   'coming soon',
+  'not available yet',
+  'plugin pending',
   'aos@aos-oracles',
 ]) {
-  assert.ok(start.includes(expected), `rendered install page is missing ${expected}`);
+  assert.ok(!start.includes(forbidden), `rendered install page retained unavailable surface: ${forbidden}`);
 }
 
 for (const forbidden of ['astrid@astrid-oracles', 'astrid@unicity-aos/oracles']) {

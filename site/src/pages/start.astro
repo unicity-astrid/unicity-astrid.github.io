@@ -2,81 +2,32 @@
 import Base from '../layouts/Base.astro';
 import { AOS_RELEASE } from '../lib/release';
 
-/** Installation page. Release metadata has one owner. */
-
-/**
- * One paste each. Stable is the installer default; development and nightly are
- * always explicit. Every product and Oracle command fails closed behind its
- * release metadata flag.
- */
 const methods = [
   {
     id: 'stable',
     label: AOS_RELEASE.channels.stable.label,
     cmd: AOS_RELEASE.channels.stable.command,
     available: AOS_RELEASE.channels.stable.available,
-    unavailableLabel: 'coming soon',
-    note: AOS_RELEASE.channels.stable.available
-      ? 'Installs the approved AOS product bundle. Re-run to upgrade on the stable channel.'
-      : 'Stable installation is not available yet.',
-  },
-  {
-    id: 'dev',
-    label: AOS_RELEASE.channels.dev.label,
-    cmd: AOS_RELEASE.channels.dev.command,
-    available: AOS_RELEASE.channels.dev.available,
-    unavailableLabel: 'coming soon',
-    note: AOS_RELEASE.channels.dev.available
-      ? AOS_RELEASE.channels.dev.note
-      : 'Development builds are not available yet.',
-  },
-  {
-    id: 'nightly',
-    label: AOS_RELEASE.channels.nightly.label,
-    cmd: AOS_RELEASE.channels.nightly.command,
-    available: AOS_RELEASE.channels.nightly.available,
-    unavailableLabel: 'coming soon',
-    note: AOS_RELEASE.channels.nightly.available
-      ? AOS_RELEASE.channels.nightly.note
-      : 'Nightly builds are not available yet.',
+    note: 'Installs the approved signed AOS release. Re-run the same command to self-heal or upgrade.',
   },
   {
     id: 'homebrew',
     label: 'Homebrew',
     cmd: AOS_RELEASE.homebrew.command,
     available: AOS_RELEASE.homebrew.available,
-    unavailableLabel: 'formula pending',
-    note: AOS_RELEASE.homebrew.available
-      ? 'Installs the signed AOS product release and its pinned runtime bundle.'
-      : 'The Homebrew formula is not available yet.',
+    note: 'Installs the signed AOS release and its pinned runtime bundle.',
   },
-  {
-    id: 'claude',
-    label: 'Claude Code',
-    cmd: AOS_RELEASE.oracles.commands.claude,
-    available: AOS_RELEASE.oracles.available,
-    unavailableLabel: 'plugin pending',
-    note: `AOS Oracle plugin (${AOS_RELEASE.oracles.pluginIdentity}). It opens only with the matching AOS base release.`,
-  },
-  {
-    id: 'grok',
-    label: 'Grok Build',
-    cmd: AOS_RELEASE.oracles.commands.grok,
-    available: AOS_RELEASE.oracles.available,
-    unavailableLabel: 'plugin pending',
-    note: `AOS Oracle plugin (${AOS_RELEASE.oracles.pluginIdentity}). It opens only with the matching AOS base release.`,
-  },
-  {
-    id: 'codex',
-    label: 'Codex',
-    cmd: AOS_RELEASE.oracles.commands.codex,
-    available: AOS_RELEASE.oracles.available,
-    unavailableLabel: 'plugin pending',
-    note: `AOS Oracle plugin (${AOS_RELEASE.oracles.pluginIdentity}; Codex uses \`add\`). It opens only with the matching AOS base release.`,
-  },
-] as const;
+] as const satisfies ReadonlyArray<{
+  id: string;
+  label: string;
+  cmd: string;
+  available: boolean;
+  note: string;
+}>;
 
-const defaultMethod = AOS_RELEASE.defaultChannel;
+const liveMethods = methods.filter((method) => method.available);
+const defaultMethod = liveMethods.find((method) => method.id === AOS_RELEASE.defaultChannel)?.id
+  ?? liveMethods[0]?.id;
 ---
 
 <Base
@@ -88,8 +39,8 @@ const defaultMethod = AOS_RELEASE.defaultChannel;
       <p class="eyebrow">Install</p>
       <h1>Unicity AOS</h1>
       <p class="prose dim start-lede">
-        Stable is the default channel. Development and nightly builds require an
-        explicit selection, and host integrations connect only with your approval.
+        Install the signed stable release with one command. Run it again at any
+        time to self-heal or upgrade.
       </p>
 
       <section
@@ -99,13 +50,13 @@ const defaultMethod = AOS_RELEASE.defaultChannel;
         aria-label="Install command"
       >
         {
-          methods.map((m) => (
+          liveMethods.map((m) => (
             <span id={m.id} class="start-anchor" aria-hidden="true" />
           ))
         }
         <div class="start-tabs" role="tablist" aria-label="Install method">
           {
-            methods.map((m) => (
+            liveMethods.map((m) => (
               <button
                 class="mono start-tab"
                 role="tab"
@@ -122,7 +73,7 @@ const defaultMethod = AOS_RELEASE.defaultChannel;
           }
         </div>
         {
-          methods.map((m) => (
+          liveMethods.map((m) => (
             <div
               class="start-panel"
               id={`panel-${m.id}`}
@@ -138,9 +89,8 @@ const defaultMethod = AOS_RELEASE.defaultChannel;
                   type="button"
                   data-copy={m.cmd}
                   aria-label={`Copy: ${m.cmd}`}
-                  disabled={!m.available}
                 >
-                  {m.available ? 'copy' : m.unavailableLabel}
+                  copy
                 </button>
               </div>
               <p class="dim start-note">{m.note}</p>
@@ -152,7 +102,6 @@ const defaultMethod = AOS_RELEASE.defaultChannel;
       <p class="mono start-meta dim">
         MIT or Apache-2.0 ·
         <a href="https://github.com/astrid-runtime/astrid">Runtime</a> ·
-        <a href="https://github.com/unicity-aos/oracles">plugins</a> ·
         <a href="https://github.com/unicity-aos/aos-ce/releases">AOS releases</a>
       </p>
     </header>
@@ -162,9 +111,9 @@ const defaultMethod = AOS_RELEASE.defaultChannel;
         <span class="mono start-link-k">Develop</span>
         <span>Build a capsule against the AOS workspace</span>
       </a>
-      <a class="card start-link" href="https://github.com/unicity-aos/oracles">
-        <span class="mono start-link-k">Plugins</span>
-        <span>Claude · Grok · Codex for Unicity AOS</span>
+      <a class="card start-link" href="/how-it-works/">
+        <span class="mono start-link-k">Explore</span>
+        <span>See how agents safely build new abilities</span>
       </a>
     </section>
   </main>
