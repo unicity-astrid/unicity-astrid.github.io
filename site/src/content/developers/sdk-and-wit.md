@@ -51,8 +51,10 @@ contract is necessary:
 4. Update the Rust SDK mirror and generated bindings together.
 5. Release the contract before consuming it from AOS.
 
-Do not rename published `astrid:*` namespaces or `@unicity-astrid` WIT package
-identities as branding cleanup. Those strings are ABI and provenance.
+Names such as `astrid:*` and `@unicity-astrid` identify versioned runtime
+contracts. Keep them unchanged unless a compatibility-reviewed contract version
+introduces a replacement; changing the display name of a product does not change
+an existing capsule ABI.
 
 ## Error design
 

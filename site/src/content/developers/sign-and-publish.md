@@ -17,7 +17,8 @@ Prepare:
 - an updated changelog entry;
 - the committed dependency lock;
 - the installable `.capsule` artifact;
-- SHA-256 or stronger content digests;
+- canonical algorithm-tagged BLAKE3 content digests
+  (`blake3:<64 lowercase hex>` in manifests and registry records);
 - the project-approved signing identity and transparency record;
 - compatibility metadata for Astrid Runtime and WIT packages.
 
@@ -59,3 +60,9 @@ tagging AOS.
 
 Enterprise may add private components, but it consumes the same open runtime and
 must not rewrite public capsule provenance.
+
+For an AOS product release, `BLAKE3SUMS.txt` is the primary digest inventory and
+`SHA256SUMS.txt` is the compatibility inventory for external consumers such as
+Homebrew. The installer independently verifies the exact product archive with
+`cosign verify-blob`, its Sigstore bundle, the GitHub OIDC issuer, and the
+approved AOS release workflow identity before it extracts any files.

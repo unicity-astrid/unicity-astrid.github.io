@@ -254,7 +254,7 @@
         void joinLink(secret, {
           onStatus: (s, detail) => {
             if (s === 'waiting') setStatus('Looking for your desktop tab…');
-            else if (s === 'connecting') setStatus('Found it — linking…');
+            else if (s === 'connecting') setStatus('Found it. Linking…');
             else if (s === 'connected')
               setStatus('Linked to your desktop, phone → tab, directly. Ask away.');
             else if (s === 'failed') setStatus(`The link failed: ${detail ?? 'no path between the two networks'}.`, true);

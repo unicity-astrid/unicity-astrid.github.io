@@ -175,7 +175,7 @@ export async function enableAgent(
         chatOptsFor(model),
       )) as unknown as Engine;
       picked = model; // keep removeModel and the fleet in sync with reality
-      publishStatus(bridge, 'ready', 'Local model loaded — running on your GPU');
+      publishStatus(bridge, 'ready', 'Local model loaded and running on your GPU');
       return true;
     } catch (err) {
       engine = null;
@@ -247,7 +247,7 @@ export async function removeModel(bridge: AstridBridge): Promise<void> {
     endpoint ? 'ready' : 'off',
     endpoint
       ? 'Downloaded model removed; connected endpoint remains active'
-      : 'Model removed from this browser — nothing left behind',
+      : 'Model removed from this browser. Nothing was left behind',
   );
 }
 
@@ -274,7 +274,7 @@ export async function connectEndpoint(bridge: AstridBridge, e: AgentEndpoint): P
         'anthropic-dangerous-direct-browser-access': 'true',
       },
     });
-    if (!res.ok) throw new Error(`Anthropic answered ${res.status} — check the key`);
+    if (!res.ok) throw new Error(`Anthropic answered ${res.status}. Check the key`);
     endpoint = { ...e, base: typed };
     publishStatus(bridge, 'ready', `Your model · Anthropic · ${e.model || 'claude-haiku-4-5'}`);
     return;
@@ -293,7 +293,7 @@ export async function connectEndpoint(bridge: AstridBridge, e: AgentEndpoint): P
       }
       const json = (await res.json()) as { data?: unknown };
       if (!Array.isArray(json.data)) {
-        lastError = `${c}/models did not return a model list — wrong path?`;
+        lastError = `${c}/models did not return a model list. Is the path correct?`;
         continue;
       }
       base = c;

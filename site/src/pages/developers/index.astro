@@ -1,3 +1,35 @@
 ---
-return Astro.redirect('/developers/overview/', 301);
+import { getCollection, render } from 'astro:content';
+import Docs from '../../layouts/Docs.astro';
+import type { NavGroup } from '../../lib/docs-nav';
+
+const guides = (await getCollection('developers')).sort((a, b) => a.data.order - b.data.order);
+const guide = guides.find((entry) => entry.id === 'overview');
+if (!guide) throw new Error('Developer Guide overview is missing');
+
+const { Content, headings } = await render(guide);
+const nav: NavGroup[] = guides.reduce<NavGroup[]>((groups, entry) => {
+  let group = groups.find((candidate) => candidate.part === entry.data.part);
+  if (!group) {
+    group = { part: entry.data.part, items: [] };
+    groups.push(group);
+  }
+  group.items.push({ title: entry.data.title, slug: entry.id });
+  return groups;
+}, []);
+const next = guides.length > 1
+  ? { title: guides[1].data.title, slug: guides[1].id }
+  : undefined;
 ---
+
+<Docs
+  guideTitle="Unicity AOS Developer Guide"
+  basePath="/developers"
+  title={guide.data.title}
+  nav={nav}
+  currentSlug={guide.id}
+  headings={headings}
+  {next}
+>
+  <Content />
+</Docs>

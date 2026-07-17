@@ -2,9 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { AOS_RELEASE } from '../lib/release';
 
-/** Release-status and installation page. Release metadata has one owner. */
-
-const RELEASE = AOS_RELEASE.version;
+/** Installation page. Release metadata has one owner. */
 
 /**
  * One paste each. Stable is the installer default; development and nightly are
@@ -17,26 +15,30 @@ const methods = [
     label: AOS_RELEASE.channels.stable.label,
     cmd: AOS_RELEASE.channels.stable.command,
     available: AOS_RELEASE.channels.stable.available,
-    unavailableLabel: 'stable closed',
+    unavailableLabel: 'coming soon',
     note: AOS_RELEASE.channels.stable.available
       ? 'Installs the approved AOS product bundle. Re-run to upgrade on the stable channel.'
-      : `Default-channel contract for ${AOS_RELEASE.version}. Stable remains closed until the matching signed AOS release is approved and published.`,
+      : 'Stable installation is not available yet.',
   },
   {
     id: 'dev',
     label: AOS_RELEASE.channels.dev.label,
     cmd: AOS_RELEASE.channels.dev.command,
     available: AOS_RELEASE.channels.dev.available,
-    unavailableLabel: 'dev closed',
-    note: `${AOS_RELEASE.channels.dev.note} This is a staged command example, not a live download.`,
+    unavailableLabel: 'coming soon',
+    note: AOS_RELEASE.channels.dev.available
+      ? AOS_RELEASE.channels.dev.note
+      : 'Development builds are not available yet.',
   },
   {
     id: 'nightly',
     label: AOS_RELEASE.channels.nightly.label,
     cmd: AOS_RELEASE.channels.nightly.command,
     available: AOS_RELEASE.channels.nightly.available,
-    unavailableLabel: 'nightly closed',
-    note: `${AOS_RELEASE.channels.nightly.note} This is a staged command example, not a live download.`,
+    unavailableLabel: 'coming soon',
+    note: AOS_RELEASE.channels.nightly.available
+      ? AOS_RELEASE.channels.nightly.note
+      : 'Nightly builds are not available yet.',
   },
   {
     id: 'homebrew',
@@ -45,8 +47,8 @@ const methods = [
     available: AOS_RELEASE.homebrew.available,
     unavailableLabel: 'formula pending',
     note: AOS_RELEASE.homebrew.available
-      ? 'Installs the signed AOS product release and its pinned Astrid Runtime bundle.'
-      : `The tap automation is ready; the ${AOS_RELEASE.version} formula publishes when the first product release dispatch completes.`,
+      ? 'Installs the signed AOS product release and its pinned runtime bundle.'
+      : 'The Homebrew formula is not available yet.',
   },
   {
     id: 'claude',
@@ -79,21 +81,15 @@ const defaultMethod = AOS_RELEASE.defaultChannel;
 
 <Base
   title="Install Unicity AOS"
-  description={AOS_RELEASE.available
-    ? 'Install Unicity AOS and connect supported coding hosts.'
-    : `Release status for Unicity AOS ${RELEASE}; product packages are staged and not yet published.`}
+  description="Install Unicity AOS and connect supported coding hosts."
 >
   <main class="start wrap">
     <header class="start-hero">
       <p class="eyebrow">Install</p>
-      <div class="start-name-row">
-        <h1>Unicity AOS</h1>
-        <span class="mono start-ver">{RELEASE}</span>
-      </div>
+      <h1>Unicity AOS</h1>
       <p class="prose dim start-lede">
-        {AOS_RELEASE.available
-          ? 'Stable is the default channel. Development and nightly builds require an explicit channel selection, and host integrations wire only with your approval.'
-          : `AOS ${RELEASE} is staged. Stable, dev, nightly, Homebrew, and AOS Oracle installs are all closed; the commands below document the release contract without claiming that any channel is published.`}
+        Stable is the default channel. Development and nightly builds require an
+        explicit selection, and host integrations connect only with your approval.
       </p>
 
       <section
@@ -183,13 +179,6 @@ const defaultMethod = AOS_RELEASE.defaultChannel;
     max-width: 52rem;
   }
 
-  .start-name-row {
-    display: flex;
-    align-items: baseline;
-    gap: var(--s-2);
-    margin-block: var(--s-2) var(--s-3);
-  }
-
   .start-hero h1 {
     font-family: var(--font-display);
     font-size: var(--step-5);
@@ -197,15 +186,7 @@ const defaultMethod = AOS_RELEASE.defaultChannel;
     letter-spacing: -0.02em;
     text-transform: uppercase;
     line-height: 0.95;
-  }
-
-  .start-ver {
-    font-size: var(--step--1);
-    color: var(--capsule);
-    border: 1px solid color-mix(in srgb, var(--capsule) 40%, transparent);
-    border-radius: 999px;
-    padding: 0.15em 0.7em;
-    transform: translateY(-0.15em);
+    margin-block: var(--s-2) var(--s-3);
   }
 
   .start-lede {

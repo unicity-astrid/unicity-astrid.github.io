@@ -6,9 +6,9 @@ order: 100
 ---
 
 `aos` is the product command. It owns the product home, Community Edition
-initialization, migration, health projection, version identity, and update
-policy. Operator commands that are not product-specific delegate to the Astrid
-Runtime bundled in the same AOS release.
+initialization, health projection, version identity, and update policy.
+Lower-level operator commands use the Astrid engine bundled in the same AOS
+release, so the complete runtime command set remains available through one CLI.
 
 ## Product-owned commands
 
@@ -18,7 +18,6 @@ Runtime bundled in the same AOS release.
 | `aos --version` | AOS calendar-SemVer version, such as `2026.1.0` |
 | `aos init` | apply the Unicity CE manifest embedded in this product release |
 | `aos status [--json]` | read typed local runtime status without invoking the runtime CLI |
-| `aos migrate runtime --from PATH` | copy compatible standalone runtime state deliberately |
 | `aos serve-health` | bind the narrow loopback health endpoint |
 | `aos update` | update the AOS product and bundled runtime together from a signed channel or exact version |
 
@@ -73,8 +72,8 @@ standalone runtime.
 
 ## Exit codes and automation
 
-Product commands return zero on success and nonzero on validation, migration,
-health-service, or child-runtime failure. Automation should consume the exit
+Product commands return zero on success and nonzero on validation,
+health-service, update, or child-runtime failure. Automation should consume the exit
 code and structured HTTP contracts rather than matching human help text.
 
 `aos serve-health` binds only `127.0.0.1:8765`. It is a long-running service,

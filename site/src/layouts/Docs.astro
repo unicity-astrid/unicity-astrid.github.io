@@ -16,11 +16,12 @@ interface Props {
 
 const { guideTitle, basePath, title, nav, currentSlug, headings, prev, next } = Astro.props;
 const toc = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
+const guideHref = (slug: string) => slug === 'overview' ? `${basePath}/` : `${basePath}/${slug}/`;
 ---
 
 <Base title={`${title} · ${guideTitle}`} description={`${guideTitle}: ${title}`}>
   <main class="docs">
-    <nav class="docs-nav" id="developer-guide-navigation" aria-label={guideTitle}>
+    <nav class="docs-nav docs-nav-desktop" id="developer-guide-navigation" aria-label={guideTitle}>
       <p class="mono docs-nav-title">{guideTitle}</p>
       {
         nav.map((group) => (
@@ -30,7 +31,7 @@ const toc = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
               {group.items.map((item) => (
                 <li>
                   <a
-                    href={`${basePath}/${item.slug}/`}
+                    href={guideHref(item.slug)}
                     aria-current={item.slug === currentSlug ? 'page' : undefined}
                   >
                     {item.title}
@@ -43,6 +44,37 @@ const toc = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
       }
     </nav>
 
+    <details class="docs-drawer">
+      <summary>
+        <span class="docs-drawer-label">
+          <span class="mono docs-drawer-guide">{guideTitle}</span>
+          <strong>{title}</strong>
+        </span>
+        <span class="mono docs-drawer-toggle" aria-hidden="true"></span>
+      </summary>
+      <nav class="docs-nav docs-drawer-nav" aria-label={`${guideTitle} chapters`}>
+        {
+          nav.map((group) => (
+            <section class="docs-group">
+              {group.part && <p class="eyebrow docs-part">{group.part}</p>}
+              <ul>
+                {group.items.map((item) => (
+                  <li>
+                    <a
+                      href={guideHref(item.slug)}
+                      aria-current={item.slug === currentSlug ? 'page' : undefined}
+                    >
+                      {item.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))
+        }
+      </nav>
+    </details>
+
     <article class="docs-body">
       <h1 class="docs-title">{title}</h1>
       <div class="doc-prose">
@@ -51,7 +83,7 @@ const toc = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
       <footer class="docs-pager hairline-top">
         {
           prev ? (
-            <a class="pager-link" href={`${basePath}/${prev.slug}/`}>
+            <a class="pager-link" href={guideHref(prev.slug)}>
               <span class="mono dim">← previous</span>
               <span>{prev.title}</span>
             </a>
@@ -61,7 +93,7 @@ const toc = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
         }
         {
           next && (
-            <a class="pager-link pager-next" href={`${basePath}/${next.slug}/`}>
+            <a class="pager-link pager-next" href={guideHref(next.slug)}>
               <span class="mono dim">next →</span>
               <span>{next.title}</span>
             </a>
@@ -110,13 +142,96 @@ const toc = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
   @media (max-width: 860px) {
     .docs {
       grid-template-columns: 1fr;
+      gap: var(--s-3);
     }
 
-    .docs-nav {
-      position: static !important;
-      max-height: none !important;
-      border-bottom: 1px solid var(--line);
-      padding-bottom: var(--s-3);
+    .docs-nav-desktop {
+      display: none;
+    }
+  }
+
+  .docs-drawer {
+    display: none;
+  }
+
+  @media (max-width: 860px) {
+    .docs-drawer {
+      display: block;
+      position: sticky;
+      top: 3.4rem;
+      z-index: 40;
+      border: 1px solid var(--line-bright);
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--bg-raised) 94%, transparent);
+      box-shadow: 0 0.75rem 2rem #0008;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .docs-drawer summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s-2);
+      min-height: 3.8rem;
+      padding: 0.75rem var(--s-2);
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .docs-drawer summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .docs-drawer-label {
+      display: grid;
+      min-width: 0;
+      gap: 0.1rem;
+    }
+
+    .docs-drawer-guide {
+      color: var(--text-faint);
+      font-size: 0.64rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .docs-drawer-label strong {
+      overflow: hidden;
+      color: var(--text);
+      font-size: var(--step--1);
+      font-weight: 600;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .docs-drawer-toggle {
+      flex: none;
+      color: var(--bus);
+      font-size: 0.7rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .docs-drawer-toggle::before {
+      content: 'chapters +';
+    }
+
+    .docs-drawer[open] .docs-drawer-toggle::before {
+      content: 'close −';
+    }
+
+    .docs-drawer .docs-drawer-nav {
+      position: static;
+      max-height: min(65vh, 32rem);
+      padding: 0 var(--s-2) var(--s-2);
+      border-top: 1px solid var(--line);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .docs-drawer .docs-drawer-nav .docs-part:first-child {
+      margin-top: var(--s-2);
     }
   }
 

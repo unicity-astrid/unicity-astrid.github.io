@@ -3,9 +3,7 @@
 import unicityMark from '../assets/unicity-wordmark.svg?raw';
 import { AOS_RELEASE } from '../lib/release';
 
-const startCommand = AOS_RELEASE.available
-  ? `$ ${AOS_RELEASE.installCommand}\n$ aos init`
-  : `Installer staged for AOS ${AOS_RELEASE.version}\nStable, dev, and nightly channels are closed.`;
+const startCommand = `$ ${AOS_RELEASE.installCommand}\n$ aos init`;
 ---
 
 <section class="start hairline-top" id="start">
@@ -21,7 +19,7 @@ const startCommand = AOS_RELEASE.available
       <a href="/start/">Install →</a>
       <a href="/registry/">The registry <span class="dim">· soon</span></a>
       <a href="https://github.com/unicity-aos/aos-ce">github.com/unicity-aos</a>
-      <a href="https://github.com/astrid-runtime/astrid">Astrid Runtime</a>
+      <a href="/developers/">Developer guide</a>
       <a href="https://github.com/astrid-runtime/sdk-rust">Capsule SDK (Rust)</a>
     </nav>
   </div>

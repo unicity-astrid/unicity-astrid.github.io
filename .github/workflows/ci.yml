@@ -1,0 +1,68 @@
+name: Website CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  AOS_INSTALLER_SOURCE_COMMIT: 18bcb92ebd8d9a7878cd0ec5e78a9790176eadd9
+
+concurrency:
+  group: website-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out website
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          path: unicity-aos-web
+          persist-credentials: false
+
+      - name: Check out canonical AOS CE installer
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: unicity-aos/aos-ce
+          ref: ${{ env.AOS_INSTALLER_SOURCE_COMMIT }}
+          path: aos-ce
+          persist-credentials: false
+          sparse-checkout: install.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: unicity-aos-web/site/package-lock.json
+
+      - name: Verify installer contract
+        run: |
+          test "$(git -C aos-ce rev-parse HEAD)" = "$AOS_INSTALLER_SOURCE_COMMIT"
+          sh -n unicity-aos-web/site/public/install.sh
+          cmp aos-ce/install.sh unicity-aos-web/site/public/install.sh
+
+      - name: Install dependencies
+        working-directory: unicity-aos-web/site
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: unicity-aos-web/site
+        env:
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: npm run check
+
+      - name: Build
+        working-directory: unicity-aos-web/site
+        env:
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: npm run build
+
+      - name: Test
+        working-directory: unicity-aos-web/site
+        run: npm test

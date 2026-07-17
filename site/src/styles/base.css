@@ -11,6 +11,7 @@
 html {
   color-scheme: dark;
   scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--s-6) + 1rem);
   -webkit-text-size-adjust: 100%;
 }
 

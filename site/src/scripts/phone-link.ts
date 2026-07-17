@@ -18,6 +18,7 @@
  */
 
 import { schnorr } from '@noble/curves/secp256k1.js';
+import { blake3 } from '@noble/hashes/blake3.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 
@@ -44,6 +45,8 @@ interface LinkCallbacks {
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
+const ROOM_TAG_CONTEXT = enc.encode('unicity-aos.phone-link.room-tag.v1');
+const AES_KEY_CONTEXT = enc.encode('unicity-aos.phone-link.aes-256-gcm-key.v1');
 
 const b64u = (b: Uint8Array) =>
   btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -56,17 +59,22 @@ export function mintSecret(): string {
   return b64u(b);
 }
 
-async function roomOf(secret: string): Promise<{ tag: string; key: CryptoKey }> {
+export function deriveRoomMaterial(secret: string): { tag: string; keyBytes: Uint8Array } {
   const raw = fromB64u(secret);
-  // room tag and AES key are independent derivations of the same secret;
-  // relays only ever see the tag
-  const tagBytes = sha256(new Uint8Array([...enc.encode('astrid-link-room:'), ...raw]));
-  const keyBytes = sha256(new Uint8Array([...enc.encode('astrid-link-key:'), ...raw]));
+  const tag = bytesToHex(blake3(raw, { context: ROOM_TAG_CONTEXT, dkLen: 16 }));
+  const keyBytes = blake3(raw, { context: AES_KEY_CONTEXT, dkLen: 32 });
+  return { tag, keyBytes };
+}
+
+async function roomOf(secret: string): Promise<{ tag: string; key: CryptoKey }> {
+  // BLAKE3 context mode gives the public room tag and private encryption key
+  // independent derivation domains; relays only ever see the tag.
+  const { tag, keyBytes } = deriveRoomMaterial(secret);
   const key = await crypto.subtle.importKey('raw', keyBytes.slice().buffer, 'AES-GCM', false, [
     'encrypt',
     'decrypt',
   ]);
-  return { tag: bytesToHex(tagBytes).slice(0, 32), key };
+  return { tag, key };
 }
 
 async function seal(key: CryptoKey, obj: unknown): Promise<string> {
@@ -152,6 +160,7 @@ class Signal {
     const created_at = Math.floor(Date.now() / 1000);
     const tags = [['t', this.#tag]];
     const idPre = JSON.stringify([0, this.#pk, created_at, KIND, tags, content]);
+    // NIP-01 defines the event id as SHA-256 of this canonical serialization.
     const id = bytesToHex(sha256(enc.encode(idPre)));
     const sig = bytesToHex(schnorr.sign(hexToBytes(id), this.#sk));
     const evt = JSON.stringify([

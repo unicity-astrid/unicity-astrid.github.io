@@ -805,7 +805,7 @@
     if (/Android|iPhone|iPad|Mobi/i.test(navigator.userAgent)) {
       mode.hidden = false;
       mode.textContent =
-        'On-device AI needs desktop-class memory, and phone browsers kill the tab mid-load. Bring your own key below — that runs on the provider, not the phone — or open this page on a computer.';
+        'On-device AI needs desktop-class memory, and phone browsers kill the tab mid-load. Bring your own key below; it runs on the provider, not the phone. Or open this page on a computer.';
       openEndpointForm();
       return;
     }
@@ -1060,7 +1060,7 @@
             linkSend?.({ t: 'partial', text: full });
           }
         });
-        reply.text = answer || '(The model returned nothing — ask again?)';
+        reply.text = answer || '(The model returned nothing. Ask again?)';
         renderTranscript();
         finishTurn(reply.text);
       } catch (err) {

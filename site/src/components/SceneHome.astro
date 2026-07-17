@@ -275,7 +275,7 @@ const residents = [
           // kestrel attempts aria's home: a REAL read through the same
           // surface the legitimate reads use. No capability covers it.
           await bridge.guestKvGet!('kestrel', home('aria'), 'note');
-          verdict('ok', 'Read allowed?! — report this, it should be impossible');
+          verdict('ok', 'Read allowed?! Report this; it should be impossible');
         } catch {
           bump('denied');
           verdict(

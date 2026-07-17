@@ -52,7 +52,7 @@ Never:
 - interpolate credentials into a system prompt;
 - publish them on the event bus;
 - include them in structured logs or error strings;
-- write them into `cwd://` or an exported migration receipt;
+- write them into `cwd://`, diagnostics, or exported metadata;
 - accept a secret value from an unauthenticated product HTTP request.
 
 Expose a configuration field as secret in the distro, then let the runtime

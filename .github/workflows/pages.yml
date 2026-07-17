@@ -1,8 +1,6 @@
 name: Deploy to GitHub Pages
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -13,7 +11,7 @@ permissions:
 env:
   # Existing aos-ce revision mirrored by site/public/install.sh. Update this full
   # commit and the mirror together after the canonical channel installer lands.
-  AOS_INSTALLER_SOURCE_COMMIT: eb1d65f0c66050becd685eaacc5b6451563b6512
+  AOS_INSTALLER_SOURCE_COMMIT: 18bcb92ebd8d9a7878cd0ec5e78a9790176eadd9
 
 concurrency:
   group: pages
@@ -66,7 +64,6 @@ jobs:
           path: unicity-aos-web/site/dist
 
   deploy:
-    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:

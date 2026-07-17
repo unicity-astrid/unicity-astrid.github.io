@@ -60,15 +60,16 @@ surface, not WIT; likely just a core issue), then core issue + gateway PR.
 Yes, it can be static. Design:
 - Repo `unicity-astrid/registry`. GH Pages serves a **sparse index**:
   `index.json` (registry metadata + capsule list) and
-  `c/<name>.json` per capsule: versions, sha256, ed25519 publisher signature,
-  publisher key id, and a download URL pointing at a GitHub **Releases**
-  asset (the `.capsule` blob). Pages never hosts blobs; Releases does.
+  `c/<name>.json` per capsule: versions, an algorithm-tagged BLAKE3 digest
+  (`blake3:<64 lowercase hex>`), Ed25519 publisher signature, publisher key id,
+  and a download URL pointing at a GitHub **Releases** asset (the `.capsule`
+  blob). Pages never hosts blobs; Releases does.
 - Trust is the signature chain, not the host: clients verify publisher
-  signature + hash after download; the blessed distro trust root
-  (claude-distro model) decides which publisher keys are trusted. A
+  signature + algorithm-tagged digest after download; the blessed distro trust
+  root (claude-distro model) decides which publisher keys are trusted. A
   compromised Pages deploy can at worst serve stale/denied listings, never
   valid-but-malicious capsules.
-- Publishing = PR to the registry repo; CI validates schema, hash, and
+- Publishing = PR to the registry repo; CI validates schema, digest, and
   signature before merge. Growth is git history; mirrors are `git clone`.
 - Site integration: the registry section of the site fetches `index.json`
   client-side and renders the live catalog.

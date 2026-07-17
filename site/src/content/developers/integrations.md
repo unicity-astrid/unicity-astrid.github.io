@@ -1,6 +1,6 @@
 ---
 title: Host integrations and Unicity Audit
-description: Connect coding hosts and the blockchain audit product without weakening the AOS/runtime boundary.
+description: Connect coding hosts and the blockchain audit product safely.
 part: Integrate
 order: 160
 ---
@@ -51,11 +51,10 @@ not open the AOS integration path early.
 
 ## Runtime access
 
-AOS is the trusted distribution above Astrid and can use the normal runtime
-socket and key custody required for product operation. It does not need an
-artificial second “product-control” socket. The boundary is enforced through
-the authenticated product process, runtime capabilities, principal context, and
-explicit HTTP or IPC contracts.
+AOS uses the authenticated control surface and runtime keys of the Astrid engine
+it ships. Host adapters go through the AOS HTTP or MCP surface and a named
+principal; they do not open the runtime socket, choose another caller identity,
+or handle root credentials themselves.
 
 Keep local secrets in the product/runtime home with restrictive permissions.
 Never forward them through web pages or browser-visible configuration.

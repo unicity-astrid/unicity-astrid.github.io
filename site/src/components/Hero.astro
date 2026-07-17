@@ -1,10 +1,9 @@
 ---
-/** Section 1 — hero. Pure type riding the spine; the claim badge is the
- *  first thing that docks onto the rail, and it is literal: the real Astrid
- *  is waking up in this tab. The eye itself lives on the page-wide fixed
- *  layer (CapsuleRing, mounted by the page), not inside the hero. */
+/** Product promise, compatibility, and the free install path. The animated eye
+ *  lives on the page-wide fixed layer mounted by the home page. */
 import unicityMark from '../assets/unicity-wordmark.svg?raw';
 import { AOS_RELEASE } from '../lib/release';
+import AgentMark from './AgentMark.astro';
 ---
 
 <header class="hero" id="top">
@@ -20,20 +19,28 @@ import { AOS_RELEASE } from '../lib/release';
         set:html={unicityMark}
       />
     </p>
+    <p class="eyebrow hero-category">The operating system for AI agents</p>
     <h1 class="hero-title">
-      A modular operating system<br />for <span class="gradient-text">AI agents</span>.
+      You give it the goal.<br /><span class="gradient-text">It builds the missing ability.</span>
     </h1>
     <p class="hero-sub prose">
-      Every ability is a sealed capsule: the model, the memory, the tools, the
-      guards. Snap them together into an agent, swap any part later, and it can
-      never take more than you gave it. Unicity AOS brings the runtime,
-      distribution, and product experience together for the agent you already use.
-    </p>
-    <p class="hero-kicker">
-      Let your AI actually do things, without handing over the keys.
+      Unicity AOS runs under the coding agent you already use. When it needs an
+      ability it does not have, it builds one as an isolated extension, shows you
+      exactly what it needs access to, asks for approval, installs it live, and
+      keeps going.
     </p>
 
+    <p class="hero-punch mono">No plugin hunting. No restart. No unrestricted machine access.</p>
+
+    <div class="hero-agents" aria-label="Supported coding agents">
+      <span class="mono hero-agents-label">Works with</span>
+      <AgentMark agent="claude" />
+      <AgentMark agent="grok" />
+      <AgentMark agent="codex" />
+    </div>
+
     <div class="hero-install" data-dock="install">
+      <p class="mono hero-install-label">Free to use. One command.</p>
       <div class="hero-cmd-box">
         <code class="hero-cmd mono" id="hero-install-cmd">{AOS_RELEASE.installCommand}</code>
         {
@@ -49,42 +56,21 @@ import { AOS_RELEASE } from '../lib/release';
           )
         }
       </div>
-      <p class="hero-install-note mono dim">
-        {
-          AOS_RELEASE.available
-            ? 'Stable channel · signed AOS product bundle · '
-            : `Stable command staged for ${AOS_RELEASE.version}; all release channels are closed · `
-        }
-        <a href="/start/">release status and integrations →</a>
-      </p>
+      <div class="hero-install-links mono">
+        <a href="/how-it-works/#grow">Watch it extend itself →</a>
+        <a href="/install.sh">Inspect install.sh</a>
+      </div>
     </div>
-
-    <div class="hero-ctas">
-      <a class="btn btn-primary" href="/start/">Install options</a>
-      <a class="btn" href="/how-it-works/">See how it works</a>
-      <a class="btn" href="/build/">Build your agent</a>
-    </div>
-    <p class="hero-works mono">
-      {AOS_RELEASE.oracles.available ? 'AOS Oracle plugins for' : 'AOS Oracle plugins staged for'}
-      {' '}<strong>Claude Code</strong>, <strong>Grok Build</strong>, and <strong>Codex</strong>
-      {' '}— identity <strong>{AOS_RELEASE.oracles.pluginIdentity}</strong>.
-    </p>
-    <p class="hero-claim mono" id="hero-claim" data-state="booting" data-dock="kernel">
-      <span class="hero-claim-dot" aria-hidden="true"></span>
-      <span id="hero-claim-text">Starting the Astrid Runtime inside Unicity AOS…</span>
-    </p>
     </div>
   </div>
 </header>
 
 <style>
-  /* The hero is taller than the screen: the extra height is the scroll the
-     visitor spends condensing the burst into the dot on the rail. The stage
-     stays pinned while that happens; everything is a pure function of scroll
-     position, so scrolling back up re-opens the eye exactly. */
+  /* One short pinned beat gives the runtime eye room to condense. Copy remains
+     fully visible through most of it and only leaves at the end. */
   .hero {
     position: relative;
-    height: 240svh;
+    height: 180svh;
   }
 
   .hero-stage {
@@ -100,8 +86,7 @@ import { AOS_RELEASE } from '../lib/release';
     position: relative;
     z-index: 1;
     padding-block: var(--s-7);
-    opacity: calc(1 - var(--hero-p, 0) * 1.6);
-    translate: 0 calc(var(--hero-p, 0) * -5rem);
+    translate: 0 var(--hero-copy-y, 0rem);
   }
 
   .hero.is-condensed .hero-inner {
@@ -151,7 +136,7 @@ import { AOS_RELEASE } from '../lib/release';
     }
 
     .hero-title {
-      font-size: var(--step-5);
+      font-size: var(--step-4);
     }
   }
 
@@ -162,13 +147,12 @@ import { AOS_RELEASE } from '../lib/release';
   }
 
   .hero-inner > .eyebrow { animation-delay: 0.05s; }
+  .hero-inner > .hero-category { animation-delay: 0.1s; }
   .hero-inner > .hero-title { animation-delay: 0.14s; }
   .hero-inner > .hero-sub { animation-delay: 0.26s; }
-  .hero-inner > .hero-kicker { animation-delay: 0.33s; }
-  .hero-inner > .hero-install { animation-delay: 0.38s; }
-  .hero-inner > .hero-ctas { animation-delay: 0.46s; }
-  .hero-inner > .hero-works { animation-delay: 0.52s; }
-  .hero-inner > .hero-claim { animation-delay: 0.6s; }
+  .hero-inner > .hero-punch { animation-delay: 0.31s; }
+  .hero-inner > .hero-agents { animation-delay: 0.36s; }
+  .hero-inner > .hero-install { animation-delay: 0.44s; }
 
   @keyframes hero-rise {
     from {
@@ -222,29 +206,76 @@ import { AOS_RELEASE } from '../lib/release';
     width: auto;
   }
 
+  .hero-category {
+    margin-top: var(--s-3);
+    color: var(--capsule);
+  }
+
   .hero-title {
-    font-size: var(--step-6);
+    font-size: var(--step-5);
     font-weight: 700;
     margin-block: var(--s-3) var(--s-3);
-    max-width: 16ch;
+    max-width: 21ch;
   }
 
   .hero-sub {
     font-size: var(--step-1);
     color: var(--text-dim);
+    max-width: 45rem;
     margin-bottom: var(--s-2);
   }
 
-  .hero-kicker {
-    font-size: var(--step-0);
-    color: var(--text);
-    max-width: var(--prose-w);
-    margin-bottom: var(--s-3);
+  .hero-punch {
+    color: var(--capsule);
+    font-size: var(--step--1);
+    letter-spacing: 0.02em;
+  }
+
+  .hero-agents {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-3);
+    width: fit-content;
+    margin-top: var(--s-3);
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-raised) 82%, transparent);
+  }
+
+  .hero-agents-label {
+    color: var(--text-faint);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 
   .hero-install {
     max-width: min(40rem, 100%);
-    margin-bottom: var(--s-4);
+    margin-block: var(--s-3) var(--s-4);
+  }
+
+  .hero-install-label {
+    margin-bottom: var(--s-1);
+    color: var(--text-dim);
+    font-size: var(--step--1);
+  }
+
+  .hero-install-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1) var(--s-3);
+    margin-top: var(--s-2);
+    font-size: var(--step--1);
+  }
+
+  .hero-install-links a {
+    color: var(--text-dim);
+  }
+
+  .hero-install-links a:hover {
+    color: var(--text);
   }
 
   .hero-cmd-box {
@@ -296,92 +327,9 @@ import { AOS_RELEASE } from '../lib/release';
     background: color-mix(in srgb, var(--capsule) 12%, transparent);
   }
 
-  .hero-install-note {
-    margin-top: 0.55rem;
-    font-size: var(--step--1);
-    line-height: 1.5;
-  }
-
-  .hero-install-note a {
-    color: var(--text-dim);
-  }
-
-  .hero-install-note a:hover {
-    color: var(--bus);
-  }
-
-  .hero-ctas {
-    display: flex;
-    gap: var(--s-2);
-    flex-wrap: wrap;
-    margin-bottom: var(--s-3);
-  }
-
-  .hero-works {
-    display: block;
-    width: fit-content;
-    max-width: 42rem;
-    font-size: var(--step--1);
-    color: var(--text-faint);
-    margin-bottom: var(--s-4);
-    line-height: 1.5;
-  }
-
-  .hero-works strong {
-    color: var(--text-dim);
-    font-weight: 600;
-  }
-
-  .hero-claim {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.6em;
-    padding: 0.5em 1em;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    font-size: var(--step--1);
-    color: var(--text-faint);
-    background: var(--bg-raised);
-  }
-
-  .hero-claim-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--text-faint);
-    flex: none;
-  }
-
-  .hero-claim[data-state='online'] {
-    color: var(--text-dim);
-    border-color: color-mix(in srgb, var(--bus) 35%, transparent);
-  }
-
-  .hero-claim[data-state='online'] .hero-claim-dot {
-    background: var(--bus);
-    box-shadow: 0 0 8px var(--bus);
-  }
 </style>
 
 <script>
-  import { onKernel, kernelStatus, kernel } from '../scripts/kernel';
-
-  // Elements are re-created on every client-router visit; the module is not.
-  // Re-apply the current kernel state to whatever hero is in the DOM.
-  function apply(): void {
-    const claim = document.getElementById('hero-claim');
-    const text = document.getElementById('hero-claim-text');
-    if (!claim || !text) return;
-    const status = kernelStatus();
-    const bridge = kernel();
-    claim.dataset.state = status;
-    if (status === 'online' && bridge) {
-      text.textContent = 'This page is static. Astrid Runtime, the engine beneath Unicity AOS, is running in this tab';
-    } else if (status === 'offline') {
-      text.textContent = 'Astrid Runtime can’t run in this browser · showing the AOS story without the live engine';
-    }
-  }
-
   function wireCopy(): void {
     const hero = document.querySelector('.hero');
     if (!hero || (hero as HTMLElement).dataset.copyWired) return;
@@ -403,10 +351,8 @@ import { AOS_RELEASE } from '../lib/release';
     });
   }
 
-  onKernel(apply);
   wireCopy();
   document.addEventListener('astro:page-load', () => {
-    apply();
     wireCopy();
   });
 </script>

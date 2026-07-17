@@ -9,22 +9,17 @@ Unicity AOS Community Edition is the public product distribution. Its command is
 `aos`; its product home is `~/.aos`; its private bundled runtime lives at
 `~/.aos/runtime`.
 
-## Release status
-
-AOS `2026.1.0` is the product version being prepared. Its stable, dev, nightly,
-Homebrew, and AOS Oracle channels are not published. Use the source workspace for
-development and treat every command below as a staged contract rather than a live
-download.
+## Install AOS
 
 Stable is the installer default. Development and nightly are always explicit:
 
 ```sh
-# Stable contract; unavailable until 2026.1.0 is approved and published.
-curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh
+# Stable
+curl -fsSL https://aos.unicity.ai/install.sh | sh
 
-# Explicit prerelease contracts; neither channel is published yet.
-curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh -s -- --channel dev
-curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh -s -- --channel nightly
+# Explicit prerelease channels
+curl -fsSL https://aos.unicity.ai/install.sh | sh -s -- --channel dev
+curl -fsSL https://aos.unicity.ai/install.sh | sh -s -- --channel nightly
 ```
 
 An unavailable channel must stop without installing or falling back to another
@@ -61,6 +56,16 @@ The installer selects a platform archive named
 and installs the product, pinned runtime, and Community Edition capsule set
 together.
 
+Verification passes the archive itself to `cosign verify-blob`, binding the
+downloaded bytes to the AOS release workflow identity and immutable calendar
+version tag before extraction. The release publishes `BLAKE3SUMS.txt` as its
+primary digest inventory and `SHA256SUMS.txt` for compatibility with external
+tooling such as Homebrew.
+
+The archive's schema-2 `release-manifest.json` records the Astrid Runtime input as
+`runtime.digest = "blake3:<64 lowercase hex>"`. The installer does not substitute
+a detached checksum comparison for direct Sigstore archive verification.
+
 ## Initialize Community Edition
 
 After the product release is installed:
@@ -75,9 +80,8 @@ The release also publishes the Homebrew formula:
 brew install unicity-aos/tap/aos
 ```
 
-The tap repository and formula automation can exist before the formula itself;
-the command is supported only after the `2026.1.0` release dispatch publishes
-and verifies the formula.
+The tap repository and formula automation can exist before the formula itself.
+The command works only after the stable release publishes and verifies it.
 
 `aos init` materializes the Unicity CE manifest installed from the same product
 release. It does not fetch a mutable manifest from `main`. The wrapper sets
@@ -106,9 +110,9 @@ A ready response proves the local product runtime is reachable. It does not
 prove that every provider credential, external service, or optional capsule is
 ready; use delegated runtime readiness and product diagnostics for those.
 
-## Existing standalone runtime
+## A clean product home
 
-On an interactive first run, `aos` may detect `~/.astrid` and ask whether to copy
-compatible state. Declining is safe. The source is not renamed or deleted, and
-you can run the explicit migration later. Read [Migrate an existing runtime](/developers/migration/)
-before importing production state.
+AOS creates `~/.aos` and provisions Community Edition from scratch. It does not
+import, rename, rewrite, or delete a standalone `~/.astrid` installation. The two
+homes can coexist, which makes a first AOS install safe to evaluate and remove
+without changing an existing Astrid setup.

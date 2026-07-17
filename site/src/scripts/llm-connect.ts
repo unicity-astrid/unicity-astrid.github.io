@@ -163,7 +163,7 @@ export async function verifyCloudKey(provider: CloudProvider, key: string): Prom
   const url =
     provider.flavor === 'anthropic' ? `${provider.base}/v1/models` : `${provider.base}/models`;
   const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`${provider.label} answered ${res.status} — check the key`);
+  if (!res.ok) throw new Error(`${provider.label} answered ${res.status}. Check the key`);
   const json = (await res.json()) as { data?: { id?: string }[] };
   if (!Array.isArray(json.data)) throw new Error(`${provider.label} returned no model list`);
   return json.data.map((m) => m.id).filter((x): x is string => !!x);

@@ -9,7 +9,7 @@
 
 <button id="hud" class="hud mono" aria-expanded="false" aria-controls="hud-drawer" title="What's running this page">
   <span id="hud-dot" class="hud-dot" data-state="booting" aria-hidden="true"></span>
-  <span id="hud-text">Waking Astrid Runtime…</span>
+  <span id="hud-text">Starting the AOS engine…</span>
 </button>
 
 <aside
@@ -46,10 +46,10 @@
   <ol id="hud-audit" class="hud-audit mono" reversed></ol>
   <p class="hud-note dim">
     This page is static: GitHub Pages, no backend, no demo server. The embedded
-    Astrid Runtime is not simulated: open devtools → Network and find <code>kernel_web_bg.wasm</code>, the
+    AOS engine is not simulated: open devtools, choose Network, and find <code>kernel_web_bg.wasm</code>, the
     same <code>astrid-kernel</code> crate the daemon ships, booted in this
     tab. Every check and every audit entry here is the runtime enforcing its
-    own rules — which is the point. Astrid's security model is not a cloud
+    own rules. That is the point. The security model is not a cloud
     promise; it holds wherever the runtime runs, including here.
   </p>
 </aside>

@@ -1,181 +1,242 @@
 ---
-/** Home. The eye and the hero live here, on the front door: the tall hero
- *  condenses the real-kernel eye into the rail as you scroll, then the page
- *  explains the shape of the OS and points you at the builder. The 01 -> 10
- *  cinematic moved to /how-it-works; the eye did NOT go with it. */
+/** Product front door. The hero makes the self-extension promise, the concrete
+ *  example removes the blank-canvas problem, and the rest proves the safety
+ *  boundary before asking for the free install. */
 import Base from '../layouts/Base.astro';
 import CapsuleRing from '../components/CapsuleRing.astro';
 import Hero from '../components/Hero.astro';
-import { AOS_RELEASE } from '../lib/release';
+import AgentMark from '../components/AgentMark.astro';
 
-const shape = [
+const voices = [
   {
-    tone: 'kernel',
-    k: '01',
-    title: 'One small, dumb kernel',
-    body: 'It routes events, enforces capabilities, and runs the sandbox. No business logic, no opinions. Replacing what your agent can do never means forking the OS.',
+    agent: 'grok' as const,
+    quote: 'I used to be trapped in a fixed harness. Now I write a capsule, you approve its permissions, and I use it live without open access.',
   },
   {
-    tone: 'capsule',
-    k: '02',
-    title: 'Everything else is a capsule',
-    body: 'The model, the loop, the memory, the tools, the skills, the frontends. Each one is sealed WebAssembly with its permissions declared up front. Swap any part, keep the machine.',
-    href: '/registry/',
-    hrefLabel: 'Browse the registry',
+    agent: 'claude' as const,
+    quote: 'I used to hit walls my harness built. Now I write a capsule, show you its permissions, and gain the exact ability I need.',
   },
   {
-    tone: 'grant',
-    k: '03',
-    title: 'Power that only narrows',
-    body: 'Capabilities are signed tokens, not prompt instructions. A capsule can only hand its helpers less than it holds, never more. Every grant and denial lands on the runtime-local audit chain you can read. Unicity Audit on the blockchain is a separate product integration.',
-    href: '/how-it-works/',
-    hrefLabel: 'See it proven live',
+    agent: 'codex' as const,
+    quote: 'I can already change your code. With AOS, I can safely change what I am capable of.',
   },
 ];
 ---
 
 <Base
-  title="Unicity AOS — a modular operating system for AI agents"
-  description="Unicity AOS is the modular Agent Operating System: Community and Enterprise editions, capsules, CLI, HTTP, and support, built on Astrid Runtime. This page runs the real runtime in your browser."
+  title="Unicity AOS: AI agents that safely extend themselves"
+  description="Give Claude Code, Grok Build, and Codex an operating system that lets them build and install new abilities with your approval."
 >
   <main>
     <CapsuleRing />
     <Hero />
 
-    <section class="home-shape wrap" aria-label="What Unicity AOS is">
-      <div class="shape-grid">
-        {
-          shape.map((s) => (
-            <article class={`card shape-card tone-${s.tone}`}>
-              <p class="mono shape-k">{s.k}</p>
-              <h2 class="shape-title">{s.title}</h2>
-              <p class="shape-body dim">{s.body}</p>
-              {s.href && (
-                <a class="mono shape-link" href={s.href}>
-                  {s.hrefLabel} →
-                </a>
-              )}
-            </article>
-          ))
-        }
+    <section class="home-moment wrap" aria-labelledby="moment-title">
+      <div class="moment-copy">
+        <p class="eyebrow">Stop choosing tools. Start giving goals.</p>
+        <h2 id="moment-title">It knows what to build because it knows what you want.</h2>
+        <p class="prose dim">
+          You do not browse a box of capsules or decide what the agent should
+          build. Your agent sees the goal, sees what it cannot yet do, and creates
+          the missing ability itself.
+        </p>
+      </div>
+
+      <div class="card moment-terminal" aria-label="Example of an agent extending itself">
+        <div class="moment-line moment-you">
+          <span class="mono moment-speaker">You</span>
+          <p>When our production checkout health check fails, collect the logs and open a GitHub issue.</p>
+        </div>
+        <div class="moment-line moment-agent">
+          <span class="mono moment-speaker">Your agent</span>
+          <p>
+            I cannot watch checkout yet. I will build a small watcher and show
+            you exactly what it needs before I install it.
+          </p>
+        </div>
+        <div class="moment-permission mono">
+          <span>Permission request</span>
+          <strong>network: status.company.com, api.github.com</strong>
+          <strong>secret: github-issues</strong>
+          <strong>filesystem: none</strong>
+        </div>
+        <div class="moment-result mono">
+          <span class="moment-result-dot" aria-hidden="true"></span>
+          Approved · watcher installed live · goal resumed
+        </div>
       </div>
     </section>
 
     <section class="home-build wrap">
       <div class="card build-band">
         <div class="build-band-copy">
-          <p class="eyebrow">Assemble it like a loadout</p>
+          <p class="eyebrow">It extends itself. You control the boundary.</p>
           <h2 class="build-band-title">
-            Build your agent from parts. Swap any of them later.
+            The ability it needs. Not the keys to your machine.
           </h2>
           <p class="prose dim">
-            Pick where it lives, start from an archetype, then mix and match
-            capsules from the registry. Watch its manifest and its keys assemble
-            as you go. The builder is a composition preview today; it cannot
-            assemble or install a distribution yet. Capsule source is available
-            in the AOS CE repository.
+            Every new ability runs inside an isolated WebAssembly capsule. It
+            declares which files, networks, tools, and secrets it needs. Nothing
+            is installed until you approve it. The agent gets enough access to
+            keep going, not unrestricted access to your machine.
+          </p>
+          <p class="prose dim">
+            A harness stops at the tools it shipped with. AOS gives your agent a
+            system it can safely add to while it is working.
           </p>
           <div class="home-ctas">
-            <a class="btn btn-primary" href="/build/">See the builder →</a>
-            <a class="btn" href="/registry/">Browse the registry</a>
+            <a class="btn btn-primary" href="/how-it-works/#grow">See it happen for real →</a>
           </div>
         </div>
         <div class="build-band-fig" aria-hidden="true">
           <div class="bb-stack">
-            <span class="bb-part">◆<em>brain</em></span>
-            <span class="bb-part">↻<em>loop</em></span>
-            <span class="bb-part">▤<em>memory</em></span>
-            <span class="bb-part add">⚒<em>tools</em></span>
-            <span class="bb-part add">✦<em>skills</em></span>
-            <span class="bb-core">the engine · dumb on purpose</span>
+            <span class="bb-part">◎<em>your goal</em></span>
+            <span class="bb-part">◆<em>your coding agent</em></span>
+            <span class="bb-part add">✦<em>the missing ability</em></span>
+            <span class="bb-part">✓<em>permissions you approved</em></span>
+            <span class="bb-core">UNICITY AOS · enforced underneath</span>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="home-next wrap">
-      <a class="card next-card" href="/how-it-works/">
-        <p class="mono next-k">The tour</p>
-        <h3 class="next-title">Watch the runtime engine work</h3>
-        <p class="dim next-body">
-          The kernel, capsules, capability gate, and runtime-local audit chain.
-          Every interactive element is driven by Astrid Runtime in your tab.
+    <section class="home-voices wrap" aria-labelledby="voices-title">
+      <header class="voices-head">
+        <p class="eyebrow">We asked Claude, Grok, and Codex</p>
+        <h2 id="voices-title">The agents have opinions.</h2>
+        <p class="dim">
+          What changes when an agent can safely build the abilities it needs?
+          We gave all three the same product brief.
         </p>
-        <span class="mono next-go">How it works →</span>
-      </a>
-      <a class="card next-card" href="/start/">
-        <p class="mono next-k">Get it</p>
-        <h3 class="next-title">Install Unicity AOS</h3>
-        <p class="dim next-body">
-          {AOS_RELEASE.available
-            ? `Install AOS ${AOS_RELEASE.version} from its verified GitHub release.`
-            : `AOS ${AOS_RELEASE.version} is staged. Stable, dev, nightly, Homebrew, and AOS Oracle installs remain closed.`}
-        </p>
-        <span class="mono next-go">Install →</span>
-      </a>
+      </header>
+      <div class="voices-grid">
+        {
+          voices.map((voice) => (
+            <figure class="card voice-card">
+              <blockquote>“{voice.quote}”</blockquote>
+              <figcaption>
+                <AgentMark agent={voice.agent} />
+              </figcaption>
+            </figure>
+          ))
+        }
+      </div>
+      <p class="mono voices-disclosure dim">
+        Responses generated by the named coding agents. Compatibility references and responses do not imply endorsement by Anthropic, xAI, or OpenAI.
+      </p>
+      <div class="voices-close">
+        <p>Your agent already knows what it is missing. Give it the ability to do something about it.</p>
+        <a class="btn btn-primary" href="/start/">Install Unicity AOS free →</a>
+      </div>
     </section>
+
   </main>
 </Base>
 
 <style>
-  /* The shape strip: three cards that give the OS substance without the full
-     cinematic. Each tone borrows one accent from the machine palette. */
-  .home-shape {
-    padding-block: var(--s-6) var(--s-5);
+  .home-moment {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: var(--s-6);
+    align-items: center;
+    padding-block: var(--s-7);
   }
 
-  .shape-grid {
+  .moment-copy h2,
+  .voices-head h2 {
+    font-size: var(--step-4);
+    line-height: 1.08;
+    margin-block: var(--s-2) var(--s-3);
+  }
+
+  .moment-copy h2 {
+    max-width: 14ch;
+  }
+
+  .moment-terminal {
+    padding: var(--s-4);
+    background:
+      radial-gradient(90% 100% at 100% 0%, color-mix(in srgb, var(--bus) 8%, transparent), transparent 65%),
+      var(--bg-raised);
+  }
+
+  .moment-line {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 6.5rem 1fr;
     gap: var(--s-3);
+    padding-block: var(--s-2);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .moment-speaker {
+    color: var(--text-faint);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .moment-agent .moment-speaker {
+    color: var(--capsule);
+  }
+
+  .moment-line p {
+    color: var(--text-dim);
+    line-height: 1.55;
+  }
+
+  .moment-permission {
+    display: grid;
+    gap: 0.5rem;
+    margin-block: var(--s-3);
+    padding: var(--s-3);
+    border: 1px solid color-mix(in srgb, var(--grant) 38%, var(--line));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--grant) 6%, transparent);
+    font-size: 0.76rem;
+  }
+
+  .moment-permission span {
+    color: var(--grant);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .moment-permission strong {
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  .moment-result {
+    display: flex;
+    align-items: center;
+    gap: 0.65em;
+    color: var(--capsule);
+    font-size: 0.76rem;
+  }
+
+  .moment-result-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--capsule);
+    box-shadow: 0 0 8px var(--capsule);
   }
 
   @media (max-width: 860px) {
-    .shape-grid { grid-template-columns: 1fr; }
+    .home-moment {
+      grid-template-columns: 1fr;
+    }
   }
 
-  .shape-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--s-2);
-    padding: var(--s-4);
-    border-top: 2px solid var(--line);
+  @media (max-width: 560px) {
+    .moment-line {
+      grid-template-columns: 1fr;
+      gap: var(--s-1);
+    }
   }
 
-  .tone-kernel { border-top-color: color-mix(in srgb, var(--kernel) 60%, transparent); }
-  .tone-capsule { border-top-color: color-mix(in srgb, var(--capsule) 60%, transparent); }
-  .tone-grant { border-top-color: color-mix(in srgb, var(--grant) 60%, transparent); }
-
-  .shape-k {
-    font-size: 0.72rem;
-    letter-spacing: 0.2em;
-    color: var(--text-faint);
-  }
-
-  .tone-kernel .shape-k { color: var(--kernel); }
-  .tone-capsule .shape-k { color: var(--capsule); }
-  .tone-grant .shape-k { color: var(--grant); }
-
-  .shape-title {
-    font-size: var(--step-2);
-    line-height: 1.1;
-  }
-
-  .shape-body {
-    font-size: var(--step-0);
-    line-height: 1.55;
-    flex: 1;
-  }
-
-  .shape-link {
-    font-size: var(--step--1);
-    color: var(--bus);
-    width: fit-content;
-  }
-
-  /* The build band: the Mr-Potato-Head invitation, made obvious. */
   .home-build {
-    padding-block: var(--s-4);
+    padding-block: var(--s-4) var(--s-6);
   }
 
   .home-ctas {
@@ -208,7 +269,13 @@ const shape = [
     margin-block: var(--s-1) var(--s-2);
   }
 
-  .build-band-copy .prose { margin-bottom: var(--s-3); }
+  .build-band-copy .prose + .prose {
+    margin-top: var(--s-2);
+  }
+
+  .build-band-copy .prose:last-of-type {
+    margin-bottom: var(--s-3);
+  }
 
   /* The assembled agent as a clean stack of parts sitting on the engine.
      Solid parts are installed; dashed ones are there to add. Pure decoration,
@@ -273,57 +340,87 @@ const shape = [
     .build-band-fig { display: none; }
   }
 
-  /* Next steps: three plain doors out. */
-  .home-next {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--s-3);
+  .home-voices {
     padding-block: var(--s-5) var(--s-8);
   }
 
-  @media (max-width: 860px) {
-    .home-next { grid-template-columns: 1fr; }
+  .voices-head {
+    max-width: 50rem;
+    margin-bottom: var(--s-4);
   }
 
-  .next-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--s-1);
-    padding: var(--s-4);
-    color: var(--text);
-  }
-
-  .next-card:hover {
-    text-decoration: none;
-    border-color: var(--line-bright);
-  }
-
-  .next-k {
-    font-size: 0.7rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--text-faint);
-  }
-
-  .next-title {
-    font-size: var(--step-1);
-    line-height: 1.1;
-  }
-
-  .next-body {
+  .voices-head p:last-child {
+    max-width: 44rem;
     font-size: var(--step--1);
     line-height: 1.55;
-    flex: 1;
   }
 
-  .next-body code {
-    color: var(--bus);
-    font-size: 0.9em;
+  .voices-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-3);
   }
 
-  .next-go {
-    font-size: var(--step--1);
-    color: var(--bus);
-    margin-top: var(--s-1);
+  .voice-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: var(--s-4);
+    min-height: 15rem;
+    padding: var(--s-4);
   }
+
+  .voice-card blockquote {
+    font-family: var(--font-display);
+    font-size: var(--step-2);
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+
+  .voice-card figcaption {
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--line);
+    color: var(--text-dim);
+  }
+
+  .voices-disclosure {
+    margin-top: var(--s-2);
+    font-size: 0.68rem;
+    line-height: 1.5;
+  }
+
+  .voices-close {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-4);
+    margin-top: var(--s-6);
+    padding-top: var(--s-4);
+    border-top: 1px solid var(--line);
+  }
+
+  .voices-close p {
+    max-width: 34rem;
+    font-family: var(--font-display);
+    font-size: var(--step-2);
+    line-height: 1.25;
+  }
+
+  @media (max-width: 900px) {
+    .voices-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .voice-card {
+      min-height: auto;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .voices-close {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+
 </style>

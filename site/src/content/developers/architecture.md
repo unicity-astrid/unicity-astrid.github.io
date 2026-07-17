@@ -1,17 +1,18 @@
 ---
 title: Product and runtime architecture
-description: Understand the boundary between the AOS distribution, Astrid Runtime, and capsules before changing code.
+description: Understand how Unicity AOS, Astrid, and capsules work together.
 part: Orientation
 order: 20
 ---
 
-Unicity AOS is a distribution and product built on Astrid Runtime. The distinction
-is operational, not cosmetic: it determines who owns releases, state, commands,
-HTTP contracts, compatibility, and support.
+Unicity AOS is the agent operating system people install. Astrid is the secure
+engine included inside it, and capsules are the isolated abilities that turn the
+engine into a useful agent. The layers keep product behavior replaceable without
+weakening the part that enforces permissions.
 
 ## The stack
 
-| Surface | Owner | Examples |
+| Layer | Role | Examples |
 | --- | --- | --- |
 | Product | Unicity AOS | `aos`, installers, editions, updates, customer HTTP edge, host integrations |
 | Distribution | AOS CE or Enterprise | `Distro.toml`, selected capsules, defaults, onboarding, product policy |
@@ -49,10 +50,7 @@ AOS. Do not fork the engine or add an AOS-only escape hatch to the kernel.
 
 ## Compatibility is part of the architecture
 
-Published crate names, `astrid:*` WIT namespaces, `@unicity-astrid` package
-identities, ABI names, signed artifacts, and release URLs retain their existing
-identifiers. Product UI and documentation say Unicity AOS; compatibility surfaces
-say Astrid where that is their actual name.
-
-That rule lets AOS evolve its brand and product without breaking verification or
-downstream consumers of the runtime.
+Crate names, `astrid:*` WIT namespaces, `@unicity-astrid` package identities,
+ABI names, signed artifacts, and release URLs are versioned compatibility
+surfaces. AOS can change its product composition without rewriting the contracts
+existing capsules were built against.

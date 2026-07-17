@@ -1,4 +1,4 @@
-const installer = "curl --proto '=https' --tlsv1.2 -fsSL https://aos.unicity.ai/install.sh | sh";
+const installer = 'curl -fsSL https://aos.unicity.ai/install.sh | sh';
 const channelAvailability = {
   stable: false,
   dev: false,
@@ -11,8 +11,10 @@ const oraclesAvailable = false;
  * Product release metadata has one owner. Every public install surface must
  * derive its enabled state and command from this object. A channel becomes
  * available only after its signed AOS bundle and channel metadata have been
- * published and verified. Oracle plugins remain closed until the matching base
- * product release is available.
+ * published and verified. The CLI, embedded runtime, BLAKE3 and compatibility
+ * digest manifests, Sigstore bundles, and installer must share one published
+ * version. Oracle plugins remain closed until the matching base product release
+ * is available.
  */
 export const AOS_RELEASE = {
   version: '2026.1.0',

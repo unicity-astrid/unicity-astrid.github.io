@@ -1,13 +1,13 @@
 ---
 title: Compose capsules into AOS
-description: Add a first-party capsule to the workspace and Community Edition without forking the engine.
+description: Add a first-party capsule to the workspace and Community Edition.
 part: Build capsules
 order: 30
 ---
 
-Unicity AOS owns its curated first-party capsules and distro composition. Astrid
-Runtime owns the generic SDK, WIT contracts, sandbox, capability enforcement,
-and artifact format.
+A capsule is one isolated ability in AOS. Community Edition selects a tested set
+of capsules and grants each one the capabilities it needs. The Astrid SDK, WIT
+contracts, sandbox, and artifact format provide the common runtime surface.
 
 ## Add the workspace member
 
@@ -71,7 +71,7 @@ Check:
 - clean initialization installs the complete CE set;
 - removing the capsule leaves the remaining distro coherent.
 
-## Keep the boundary intact
+## Keep runtime contracts generic
 
 Add product behavior through capsules and distro policy. If the change needs a
 generic WIT contract, SDK capability, kernel operation, or sandbox behavior,
