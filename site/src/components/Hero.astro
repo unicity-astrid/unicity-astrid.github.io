@@ -89,10 +89,6 @@ import AgentMark from './AgentMark.astro';
     translate: 0 var(--hero-copy-y, 0rem);
   }
 
-  .hero.is-condensed .hero-inner {
-    pointer-events: none;
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .hero {
       height: auto;
@@ -127,12 +123,6 @@ import AgentMark from './AgentMark.astro';
       opacity: 1;
       translate: none;
       padding-block: calc(var(--s-6) + 2.5rem) var(--s-7);
-    }
-
-    /* the scroll driver still stamps is-condensed; unpinned content must
-       stay clickable regardless */
-    .hero.is-condensed .hero-inner {
-      pointer-events: auto;
     }
 
     .hero-title {
@@ -330,6 +320,27 @@ import AgentMark from './AgentMark.astro';
 </style>
 
 <script>
+  async function copyText(value: string): Promise<void> {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(value);
+        return;
+      } catch {
+        // Fall through to the selection-based browser fallback.
+      }
+    }
+    const field = document.createElement('textarea');
+    field.value = value;
+    field.setAttribute('readonly', '');
+    field.style.position = 'fixed';
+    field.style.opacity = '0';
+    document.body.append(field);
+    field.select();
+    const copied = document.execCommand('copy');
+    field.remove();
+    if (!copied) throw new Error('copy was rejected');
+  }
+
   function wireCopy(): void {
     const hero = document.querySelector('.hero');
     if (!hero || (hero as HTMLElement).dataset.copyWired) return;
@@ -337,7 +348,7 @@ import AgentMark from './AgentMark.astro';
     hero.querySelectorAll<HTMLButtonElement>('.hero-copy').forEach((btn) => {
       btn.addEventListener('click', async () => {
         try {
-          await navigator.clipboard.writeText(btn.dataset.copy ?? '');
+          await copyText(btn.dataset.copy ?? '');
           btn.textContent = 'copied';
           btn.dataset.done = '1';
           setTimeout(() => {

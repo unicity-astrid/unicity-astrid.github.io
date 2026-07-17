@@ -36,18 +36,17 @@ The AOS product installer may detect supported hosts and ask before wiring them.
 A host plugin by itself is not the base product. Documentation must direct users
 to the matching signed AOS release before offering plugin-only commands.
 
-The host plugin identity is `aos@aos-oracles` in the `unicity-aos/oracles`
-marketplace. The staged host commands are:
+The installer downloads the verified plugin snapshot and runs the supported
+host marketplace command. To select one host explicitly:
 
 ```sh
-claude plugin marketplace add unicity-aos/oracles && claude plugin install aos@aos-oracles
-grok plugin marketplace add unicity-aos/oracles && grok plugin install aos@aos-oracles --trust
-codex plugin marketplace add unicity-aos/oracles && codex plugin add aos@aos-oracles
+curl -fsSL https://aos.unicity.ai/install.sh | sh -s -- --host claude
+curl -fsSL https://aos.unicity.ai/install.sh | sh -s -- --host grok
+curl -fsSL https://aos.unicity.ai/install.sh | sh -s -- --host codex
 ```
 
-These commands remain disabled until the matching AOS product release is
-available. A published source repository or an older Astrid plugin identity must
-not open the AOS integration path early.
+Without `--host`, the installer detects supported hosts and asks which plugins
+to install.
 
 ## Runtime access
 

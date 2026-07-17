@@ -11,7 +11,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "node scripts/test-release-contract.mjs && rm -rf .test-dist && tsc -p tsconfig.test.json && node --test .test-dist/tests/*.test.js"
+    "test": "node scripts/test-release-contract.mjs && bash scripts/test-install-orchestration.sh && rm -rf .test-dist && tsc -p tsconfig.test.json && node --test .test-dist/tests/*.test.js"
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.5",

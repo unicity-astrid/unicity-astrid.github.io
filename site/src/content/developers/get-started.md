@@ -66,9 +66,14 @@ The archive's schema-2 `release-manifest.json` records the Astrid Runtime input 
 `runtime.digest = "blake3:<64 lowercase hex>"`. The installer does not substitute
 a detached checksum comparison for direct Sigstore archive verification.
 
-## Initialize Community Edition
+## Start a host plugin
 
-After the product release is installed:
+No manual `aos init` is required for Claude Code, Codex, or Grok Build. Start a
+selected host after installation. Its plugin provisions only that host's named
+principal and Oracle pack.
+
+`aos init` remains available when an operator deliberately wants a standalone
+Community Edition administration workspace:
 
 ```sh
 aos init

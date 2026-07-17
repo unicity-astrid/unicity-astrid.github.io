@@ -8,7 +8,7 @@ const methods = [
     label: AOS_RELEASE.channels.stable.label,
     cmd: AOS_RELEASE.channels.stable.command,
     available: AOS_RELEASE.channels.stable.available,
-    note: 'Installs the approved signed AOS release. Re-run the same command to self-heal or upgrade.',
+    note: 'Installs signed AOS, detects Claude Code, Codex, and Grok Build, then offers their plugins.',
   },
   {
     id: 'homebrew',
@@ -39,8 +39,8 @@ const defaultMethod = liveMethods.find((method) => method.id === AOS_RELEASE.def
       <p class="eyebrow">Install</p>
       <h1>Unicity AOS</h1>
       <p class="prose dim start-lede">
-        Install the signed stable release with one command. Run it again at any
-        time to self-heal or upgrade.
+        Install the signed stable release and connect the coding agents already
+        on this machine. Run it again at any time to self-heal or upgrade.
       </p>
 
       <section

@@ -9,9 +9,8 @@ permissions:
   contents: read
 
 env:
-  # Existing aos-ce revision mirrored by site/public/install.sh. Update this full
-  # commit and the mirror together after the canonical channel installer lands.
   AOS_INSTALLER_SOURCE_COMMIT: dfa1d71c2737a016d8d4dd169d0755ff624f6b50
+  ORACLE_INSTALLER_SOURCE_COMMIT: 6f06e338e8add64b8eb2acf109bfb42f63fa247c
 
 concurrency:
   group: pages
@@ -31,11 +30,22 @@ jobs:
           ref: ${{ env.AOS_INSTALLER_SOURCE_COMMIT }}
           path: aos-ce
           persist-credentials: false
+      - name: Check out pinned Oracle installer source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: unicity-aos/oracles
+          ref: ${{ env.ORACLE_INSTALLER_SOURCE_COMMIT }}
+          path: oracles
+          persist-credentials: false
       - name: Verify canonical installer mirror
         run: |
           test "$(git -C aos-ce rev-parse HEAD)" = "$AOS_INSTALLER_SOURCE_COMMIT"
+          test "$(git -C oracles rev-parse HEAD)" = "$ORACLE_INSTALLER_SOURCE_COMMIT"
+          sh -n unicity-aos-web/site/public/install.sh
           sh -n aos-ce/install.sh
-          cmp aos-ce/install.sh unicity-aos-web/site/public/install.sh
+          sh -n oracles/install.sh
+          cmp aos-ce/install.sh unicity-aos-web/site/public/base-install.sh
+          cmp oracles/install.sh unicity-aos-web/site/public/oracle-install.sh
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
@@ -55,7 +65,10 @@ jobs:
           ASTRO_TELEMETRY_DISABLED: '1'
         run: npm run build
       - name: Verify built installer bytes
-        run: cmp aos-ce/install.sh unicity-aos-web/site/dist/install.sh
+        run: |
+          cmp unicity-aos-web/site/public/install.sh unicity-aos-web/site/dist/install.sh
+          cmp aos-ce/install.sh unicity-aos-web/site/dist/base-install.sh
+          cmp oracles/install.sh unicity-aos-web/site/dist/oracle-install.sh
       - name: Test release surfaces
         working-directory: unicity-aos-web/site
         run: npm test

@@ -11,7 +11,11 @@ const [
   integrations,
   llms,
   publicInstaller,
+  publicBaseInstaller,
+  publicOracleInstaller,
   builtInstaller,
+  builtBaseInstaller,
+  builtOracleInstaller,
   heroSource,
   capsuleRingSource,
   baseStyles,
@@ -25,7 +29,11 @@ const [
     read('dist/developers/integrations/index.html'),
     read('dist/llms.txt'),
     read('public/install.sh'),
+    read('public/base-install.sh'),
+    read('public/oracle-install.sh'),
     read('dist/install.sh'),
+    read('dist/base-install.sh'),
+    read('dist/oracle-install.sh'),
     read('src/components/Hero.astro'),
     read('src/components/CapsuleRing.astro'),
     read('src/styles/base.css'),
@@ -72,6 +80,8 @@ assert.ok(home.includes('No plugin hunting. No restart. No unrestricted machine 
 assert.ok(home.includes('Inspect install.sh'), 'home page does not expose the installer for inspection');
 assert.ok(!home.includes('Astrid Runtime'), 'home page should remain product-first');
 assert.ok(!heroSource.includes('hero-copy-opacity'), 'hero source retained the copy opacity fade');
+assert.ok(!heroSource.includes('.hero.is-condensed .hero-inner'), 'condensed hero still disables command interaction');
+assert.ok(heroSource.includes("document.execCommand('copy')"), 'hero copy has no browser fallback');
 assert.ok(!capsuleRingSource.includes('--hero-copy-opacity'), 'hero scroll driver retained the copy opacity fade');
 assert.ok(capsuleRingSource.includes('-8 * exit'), 'hero scroll driver does not move the copy upward');
 assert.ok(baseStyles.includes('scroll-behavior: smooth'), 'site does not enable native smooth scrolling');
@@ -87,6 +97,14 @@ assert.ok(!home.includes("curl --proto '=https'"), 'public install command is un
 assert.ok(getStarted.includes('must stop without installing'), 'get-started guide must document fail-closed channels');
 assert.ok(llms.includes('Unavailable channels fail closed'));
 assert.equal(builtInstaller, publicInstaller, 'Astro changed the mirrored installer bytes');
+assert.equal(builtBaseInstaller, publicBaseInstaller, 'Astro changed the base installer bytes');
+assert.equal(builtOracleInstaller, publicOracleInstaller, 'Astro changed the Oracle installer bytes');
+assert.ok(publicInstaller.includes('--plugins-only'), 'public installer does not install host plugins');
+assert.ok(publicInstaller.includes('--no-migrate-prompt'), 'public installer can launch the legacy migration prompt');
+assert.ok(publicInstaller.includes('--oracle-installer'), 'public installer lacks the local Oracle test override');
+assert.ok(publicInstaller.includes('--channel'), 'public installer lacks AOS channel passthrough');
+assert.ok(publicInstaller.includes('--version'), 'public installer lacks exact-version passthrough');
+assert.ok(publicInstaller.includes("--proto-redir '=https'"), 'public installer permits redirect protocol downgrade');
 
 const generatedRoot = new URL('../dist/', import.meta.url);
 const generatedTextFiles = (await readdir(generatedRoot, { recursive: true }))

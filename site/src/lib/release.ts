@@ -5,17 +5,7 @@ const channelAvailability = {
   nightly: false,
 } as const;
 const homebrewAvailable = true;
-const oraclesAvailable = false;
-
-/**
- * Product release metadata has one owner. Every public install surface must
- * derive its enabled state and command from this object. A channel becomes
- * available only after its signed AOS bundle and channel metadata have been
- * published and verified. The CLI, embedded runtime, BLAKE3 and compatibility
- * digest manifests, Sigstore bundles, and installer must share one published
- * version. Oracle plugins remain closed until the matching base product release
- * is available.
- */
+const oraclesAvailable = true;
 export const AOS_RELEASE = {
   version: '2026.1.1',
   status: 'released',
@@ -49,15 +39,15 @@ export const AOS_RELEASE = {
   },
   oracles: {
     available: oraclesAvailable,
-    pluginIdentity: 'aos@aos-oracles',
+    pluginIdentity: 'unicity-aos@unicity-aos-oracles',
     marketplace: 'https://github.com/unicity-aos/oracles',
     commands: {
       claude:
-        'claude plugin marketplace add unicity-aos/oracles && claude plugin install aos@aos-oracles',
+        `${installer} -s -- --host claude`,
       grok:
-        'grok plugin marketplace add unicity-aos/oracles && grok plugin install aos@aos-oracles --trust',
+        `${installer} -s -- --host grok`,
       codex:
-        'codex plugin marketplace add unicity-aos/oracles && codex plugin add aos@aos-oracles',
+        `${installer} -s -- --host codex`,
     },
   },
 } as const;
