@@ -6,9 +6,8 @@ order: 90
 ---
 
 Unicity AOS versions independently from Astrid Runtime. Product releases use
-calendar SemVer: `2026.1.0` is the staged candidate for the first stable 2026
-release; compatible fixes advance the patch and compatible product features
-advance the minor. It is not published yet.
+calendar SemVer: `2026.1.0` is the first stable 2026 release; compatible fixes
+advance the patch and compatible product features advance the minor.
 
 ## Release identity
 
@@ -58,9 +57,9 @@ curl -fsSL https://aos.unicity.ai/install.sh | sh -s -- --channel dev
 curl -fsSL https://aos.unicity.ai/install.sh | sh -s -- --channel nightly
 ```
 
-These are contract examples, not claims that a channel is live. All three are
-closed while `2026.1.0` is staged. The installer must resolve a selected channel
-to signed release metadata and an immutable tag. Missing, invalid, or mismatched
+Stable is live for `2026.1.0`. Dev and nightly remain closed until their signed
+channel pointers are published. The installer must resolve a selected channel to
+signed release metadata and an immutable tag. Missing, invalid, or mismatched
 channel metadata stops installation; it never falls back to another channel.
 
 ## Supported targets

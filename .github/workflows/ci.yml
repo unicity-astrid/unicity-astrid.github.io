@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 env:
-  AOS_INSTALLER_SOURCE_COMMIT: 18bcb92ebd8d9a7878cd0ec5e78a9790176eadd9
+  AOS_INSTALLER_SOURCE_COMMIT: eb63fffe1250298045faa666841fae3a9cb101a4
 
 concurrency:
   group: website-ci-${{ github.event.pull_request.number }}

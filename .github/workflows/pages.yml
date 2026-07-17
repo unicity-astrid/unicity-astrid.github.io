@@ -11,7 +11,7 @@ permissions:
 env:
   # Existing aos-ce revision mirrored by site/public/install.sh. Update this full
   # commit and the mirror together after the canonical channel installer lands.
-  AOS_INSTALLER_SOURCE_COMMIT: 18bcb92ebd8d9a7878cd0ec5e78a9790176eadd9
+  AOS_INSTALLER_SOURCE_COMMIT: eb63fffe1250298045faa666841fae3a9cb101a4
 
 concurrency:
   group: pages
@@ -56,7 +56,7 @@ jobs:
         run: npm run build
       - name: Verify built installer bytes
         run: cmp aos-ce/install.sh unicity-aos-web/site/dist/install.sh
-      - name: Test staged release surfaces
+      - name: Test release surfaces
         working-directory: unicity-aos-web/site
         run: npm test
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3

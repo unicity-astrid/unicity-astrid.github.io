@@ -34,8 +34,12 @@ const [
 
 const copyButtons = start.match(/<button class="mono start-copy"[^>]*>/g) ?? [];
 assert.equal(copyButtons.length, 7, 'expected stable, dev, nightly, Homebrew, and three Oracle controls');
-for (const button of copyButtons) {
-  assert.match(button, / disabled(?:\s|>)/, 'every staged install control must be disabled');
+for (const [index, button] of copyButtons.entries()) {
+  if (index === 0 || index === 3) {
+    assert.doesNotMatch(button, / disabled(?:\s|>)/, 'stable and Homebrew must be enabled');
+  } else {
+    assert.match(button, / disabled(?:\s|>)/, 'dev, nightly, and Oracle controls must be disabled');
+  }
 }
 
 for (const expected of [
@@ -52,7 +56,7 @@ for (const forbidden of ['astrid@astrid-oracles', 'astrid@unicity-aos/oracles'])
   assert.ok(!integrations.includes(forbidden), `integration guide retained ${forbidden}`);
 }
 
-assert.ok(!home.includes('<button class="mono hero-copy"'), 'staged home page exposed an installer copy action');
+assert.ok(home.includes('<button class="mono hero-copy"'), 'released home page is missing the installer copy action');
 assert.ok(!home.includes('Install options'), 'home page retained the redundant hero CTA row');
 assert.ok(!home.includes('class="home-next'), 'home page retained the redundant next-step cards');
 assert.ok(home.includes('You give it the goal'), 'home page does not lead with the user goal');
@@ -94,4 +98,4 @@ for (const path of generatedTextFiles) {
   assert.ok(!contents.includes('—'), `${path} contains an em dash`);
 }
 
-console.log('release/install surfaces are staged and fail closed');
+console.log('stable release surfaces are live; unpublished channels fail closed');
